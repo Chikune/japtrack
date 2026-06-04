@@ -952,6 +952,7 @@ function renderHomeSummary() {
 function monthlyTxnSeries() {
   const by = {};
   getTxns().forEach(t => {
+    if (typeof isRefundLeg === "function" && isRefundLeg(t)) return; // paired refunds net to zero
     const ym = (t.date || "").slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) return;
     if (!by[ym]) by[ym] = { ym, income: 0, expenses: 0 };

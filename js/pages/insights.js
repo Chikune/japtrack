@@ -41,7 +41,7 @@ function renderInsTrend(txns, now) {
 
 function renderInsYTD(txns, now) {
   const yStart = new Date(now.getFullYear(), 0, 1).getTime();
-  const inRange = txns.filter(t => t.date && new Date(t.date+"T00:00:00").getTime() >= yStart);
+  const inRange = txns.filter(t => t.date && new Date(t.date+"T00:00:00").getTime() >= yStart && !(typeof isRefundLeg === "function" && isRefundLeg(t)));
   const inSum = inRange.filter(t => normType(t)==="in").reduce((s,t)=>s+t.amount, 0);
   const outSum = inRange.filter(t => normType(t)==="out").reduce((s,t)=>s+t.amount, 0);
   const net = inSum - outSum;

@@ -254,22 +254,30 @@ function netSpendByCategory(txns, expCatSet) {
   expCatSet = expCatSet || _expCatSet();
   const map = {};
   txns.forEach(t => {
+    if (typeof isRefundLeg === "function" && isRefundLeg(t)) return; // paired refunds net to zero — excluded
     const ty = normType(t);
     if (ty === "out") txCategoryEntries(t).forEach(e => { map[e.category] = (map[e.category]||0) + e.amount; });
     else if (ty === "in" && expCatSet.has(t.category)) map[t.category] = (map[t.category]||0) - t.amount;
   });
   return map;
 }
-// Sum of "refund" txns (income tagged with an expense category) inside a set.
-// Useful for the dashboard "Spent" KPI's "after refunds" annotation.
+// Sum of "refund-like" income inside a set — money that cancels prior spending and
+// should reduce your real spend figure. Two cases:
+//   1) income tagged with an EXPENSE category (e.g. friend repaid your "Clothing")
+//   2) income in the dedicated "Reimbursement" category (work expenses paid back, etc.)
+// Both feed netSpent so the dashboard shows what you ACTUALLY spent after money back.
 function refundsTotal(txns, expCatSet) {
   expCatSet = expCatSet || _expCatSet();
-  return txns.filter(t => normType(t) === "in" && expCatSet.has(t.category)).reduce((s,t)=>s+t.amount, 0);
+  return txns
+    .filter(t => normType(t) === "in" && (expCatSet.has(t.category) || t.category === "Reimbursement"))
+    .reduce((s,t)=>s+t.amount, 0);
 }
 
 function mStat(txns, y, m) {
   const key = monthKey(y, m);
-  const mt  = txns.filter(t => monthKeyStr(t.date) === key);
+  // Exclude paired-refund legs (hidden Refunds category): both sides net to zero,
+  // so they must not inflate spending OR income anywhere downstream.
+  const mt  = txns.filter(t => monthKeyStr(t.date) === key && !(typeof isRefundLeg === "function" && isRefundLeg(t)));
   const expSet = _expCatSet();
   const spent = mt.filter(t => normType(t) === "out").reduce((s,t)=>s+t.amount,0);
   const refunds = refundsTotal(mt, expSet);
@@ -292,6 +300,7 @@ function rangeStat(txns, startYM, endYM) {
   }
   if (!startYM) startYM = endYM;
   const within = txns.filter(t => {
+    if (typeof isRefundLeg === "function" && isRefundLeg(t)) return false; // paired refunds excluded
     const k = monthKeyStr(t.date);
     return k && k >= startYM && k <= endYM;
   });

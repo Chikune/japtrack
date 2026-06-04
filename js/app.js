@@ -304,6 +304,56 @@ if (_dark) document.documentElement.dataset.theme = "dark";
 document.documentElement.dataset.density = "compact";
 localStorage.setItem("ledger_density", "compact");
 if (typeof seedMissingCatIcons === "function") seedMissingCatIcons();
+// One-time cleanup: move already-imported refund pairs into the hidden Refunds
+// category so both legs cancel out (fixes spend that was still counting in Misc
+// etc. from imports made before the both-legs rule). Runs once, guarded by a flag.
+(function migrateRefundPairsV1() {
+  try {
+    const s = getSettings();
+    if (s.refundMigrationV1) return;
+    const REF = (typeof REFUND_CAT !== "undefined") ? REFUND_CAT : "Refunds";
+    const txns = getTxns();
+    if (txns.length) {
+      const expSet = new Set((typeof getAllCats === "function" ? getAllCats("exp") : []).map(c => c.id));
+      const cn = (d) => String(d || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+      const within30 = (a, b) => {
+        if (!a || !b) return false;
+        const da = new Date(a + "T00:00:00").getTime(), db = new Date(b + "T00:00:00").getTime();
+        return !isNaN(da) && !isNaN(db) && Math.abs(da - db) <= 30 * 864e5;
+      };
+      const ty = (t) => { const r = (t.type || "out").toLowerCase(); return r === "in" || r === "income" ? "in" : r === "transfer" ? "transfer" : "out"; };
+      // A refund candidate: income already flagged isRefund, OR income whose category
+      // is an expense category (the old "tagged with original category" scheme).
+      const refundIncome = txns.filter(t => ty(t) === "in" && t.category !== REF && (t.isRefund || expSet.has(t.category)));
+      const outTxns = txns.filter(t => ty(t) === "out" && t.category !== REF);
+      let touched = 0;
+      refundIncome.forEach(rt => {
+        const name = cn(rt.description), amt = Math.abs(rt.amount || 0);
+        // match the most-recent unmatched expense of same merchant + amount within ±30d
+        let best = null;
+        outTxns.forEach(ot => {
+          if (ot._refMigDone) return;
+          if (Math.abs((ot.amount || 0) - amt) > 0.01) return;
+          if (cn(ot.description) !== name) return;
+          if (!within30(ot.date, rt.date)) return;
+          if (!best || (ot.date || "") > (best.date || "")) best = ot;
+        });
+        // Always file the refund income leg under Refunds; file its matched charge too.
+        rt.category = REF; rt.isRefund = true; touched++;
+        if (best) { best.category = REF; best.isRefund = true; best._refMigDone = true; touched++; }
+      });
+      if (touched) {
+        // Back up the pre-migration list once, then clean the temp flag and persist.
+        try { localStorage.setItem("fin_txns_prerefundmigration", JSON.stringify(getTxns())); } catch {}
+        txns.forEach(t => { delete t._refMigDone; });
+        lsSet("fin_txns", txns);
+        console.info(`[refund-migration] reclassified ${touched} txn(s) into ${REF}`);
+      }
+    }
+    s.refundMigrationV1 = true;
+    lsSet("fin_settings", s);
+  } catch (e) { console.warn("refund migration skipped:", e); }
+})();
 rebuildCatBy();
 rebuildNWCats();
 // Merge NW buckets + every account name observed in transactions into settings.accounts,

@@ -1691,10 +1691,13 @@ function _computeBankImpGroups() {
     g.isRefundOnly = g.indices.every(i => _bankImpRows[i] && _bankImpRows[i].isRefund);
     g.isComplex = !g.isRefundOnly && _isComplexGroup(g);
   });
-  // Sort order (top → bottom): easy → complex (detailed review) → refund-only.
-  // Refund-only sinks below detailed review so the user doesn't have to scroll past
-  // a long PayPal group just to reach merchants that still need a category.
-  const rank = g => g.isRefundOnly ? 2 : (g.isComplex ? 1 : 0);
+  // Mark groups whose every row is a duplicate so they can sink to the very bottom —
+  // the user almost never needs to touch already-imported rows.
+  groups.forEach(g => { g.isAllDupe = g.count > 0 && g.dupeCount === g.count; });
+  // Sort order (top → bottom): new/easy → complex (detailed review) → refund-only
+  // → all-duplicate. Non-duplicates float to the top so the rows that actually need
+  // attention are seen first; fully-duplicate groups drop below everything.
+  const rank = g => g.isAllDupe ? 3 : (g.isRefundOnly ? 2 : (g.isComplex ? 1 : 0));
   return groups.sort((a, b) => {
     const ra = rank(a), rb = rank(b);
     if (ra !== rb) return ra - rb;
@@ -1761,7 +1764,9 @@ function renderBankImpList() {
   const expCats = getAllCats("exp").map(c => c.id);
   const incCats = getAllCats("in").map(c => c.id);
   const accts = _allKnownAccounts();
-  const head = `<div class="bankimp-head"><span></span><span>Merchant</span><span>Amount</span><span>Suggested category / account</span><span>Type</span><span>Confidence</span><span></span></div>`;
+  const allStateF = _bankImpAllState();
+  const masterCbF = `<input type="checkbox" class="bankimp-master-cb" ${allStateF==="all"?"checked":""} ${allStateF==="partial"?'data-partial="1"':''} onchange="toggleBankImpAll(this.checked)" title="Select all / none" aria-label="Select all transactions" />`;
+  const head = `<div class="bankimp-head">${masterCbF}<span>Merchant</span><span>Amount</span><span>Suggested category / account</span><span>Type</span><span>Confidence</span><span></span></div>`;
   const rows = _bankImpRows.map((r, i) => {
     // Hide the original charge of an in-import refund pair — it's shown beneath
     // its refund row (↑ ORIGINAL), not as a standalone line in the main list.
@@ -1807,7 +1812,13 @@ function renderBankImpList() {
     </div>${pairHtml}`;
   }).join("");
   document.getElementById("bankimp-list").innerHTML = head + rows;
+  _applyBankImpMasterState();
   updateBankImpCounts();
+}
+// Reflect partial selection on the header master checkbox (—) after each render.
+function _applyBankImpMasterState() {
+  const cb = document.querySelector(".bankimp-master-cb");
+  if (cb) cb.indeterminate = _bankImpAllState() === "partial";
 }
 
 function updateBankImpCounts() {
@@ -1830,7 +1841,9 @@ function renderBankImpGroupedList() {
   const accts = _allKnownAccounts();
   const groups = _computeBankImpGroups();
   _bankImpGroupView = groups; // snapshot so propagation handlers don't shift after a rename
-  const head = `<div class="bankimp-head bankimp-head-grouped"><span></span><span>Merchant</span><span>Count</span><span>Total</span><span>Suggested category / account</span><span>Type</span><span>Confidence</span><span></span></div>`;
+  const allState = _bankImpAllState();
+  const masterCb = `<input type="checkbox" class="bankimp-master-cb" ${allState==="all"?"checked":""} ${allState==="partial"?'data-partial="1"':''} onchange="toggleBankImpAll(this.checked)" title="Select all / none" aria-label="Select all transactions" />`;
+  const head = `<div class="bankimp-head bankimp-head-grouped">${masterCb}<span>Merchant</span><span>Count</span><span>Total</span><span>Suggested category / account</span><span>Type</span><span>Confidence</span><span></span></div>`;
   const easyCount = groups.filter(g => !g.isComplex && !g.isRefundOnly).length;
   const complexCount = groups.filter(g => g.isComplex).length;
   const refundCount = groups.filter(g => g.isRefundOnly).length;
@@ -1844,23 +1857,45 @@ function renderBankImpGroupedList() {
     const dupCls  = g.dupeCount === g.count && g.count ? " is-dupe" : "";
     const ruleCls = g.anyFromUserRule ? " has-rule" : "";
     const typeOpts = ["out","in","transfer"].map(t => `<option value="${t}"${t===g.type?' selected':''}>${t}</option>`).join("");
-    let midCol;
-    if (g.type === "transfer") {
-      const cur = g.toAccount || "";
-      const opts = [
-        ...accts.map(a => `<option value="${a.replace(/"/g,'&quot;')}"${a===cur?' selected':''}>${a}</option>`),
-        (cur && !accts.includes(cur)) ? `<option value="${cur.replace(/"/g,'&quot;')}" selected>${cur} (new)</option>` : "",
-        `<option value="__new__">+ Add new account…</option>`,
-      ].join("");
-      midCol = `<select onchange="updateBankImpGroupToAcct(${gi}, this.value)" title="Destination account (applies to all ${g.count})">${opts}</select>`;
+    let midCol, typeCol;
+    if (g.isRefundOnly) {
+      // Paired refunds are locked: both legs go to the hidden Refunds category and
+      // cancel out. The user can rename them, but category & type are fixed so they
+      // can't be re-classified into real spending/income. Show read-only labels.
+      midCol  = `<span class="bankimp-locked" title="Both sides of a paired refund are filed under the hidden Refunds category and excluded from totals — not editable">↩ Refunds</span>`;
+      typeCol = `<span class="bankimp-locked" title="Locked — paired refund">in</span>`;
     } else {
-      const cats = g.type === "in" ? incCats : expCats;
-      const opts = cats.map(c => `<option value="${c.replace(/"/g,'&quot;')}"${c===g.category?' selected':''}>${c}</option>`).join("");
-      midCol = `<select onchange="updateBankImpGroupCat(${gi}, this.value)" title="Category (applies to all ${g.count})">${opts}</select>`;
+      if (g.type === "transfer") {
+        const cur = g.toAccount || "";
+        const opts = [
+          ...accts.map(a => `<option value="${a.replace(/"/g,'&quot;')}"${a===cur?' selected':''}>${a}</option>`),
+          (cur && !accts.includes(cur)) ? `<option value="${cur.replace(/"/g,'&quot;')}" selected>${cur} (new)</option>` : "",
+          `<option value="__new__">+ Add new account…</option>`,
+        ].join("");
+        midCol = `<select onchange="updateBankImpGroupToAcct(${gi}, this.value)" title="Destination account (applies to all ${g.count})">${opts}</select>`;
+      } else {
+        const cats = g.type === "in" ? incCats : expCats;
+        const cur = g.category || "";
+        const opts = [
+          ...cats.map(c => `<option value="${c.replace(/"/g,'&quot;')}"${c===cur?' selected':''}>${c}</option>`),
+          (cur && !cats.includes(cur)) ? `<option value="${cur.replace(/"/g,'&quot;')}" selected>${cur} (new)</option>` : "",
+          `<option value="__newcat__">+ Add new category…</option>`,
+        ].join("");
+        midCol = `<select onchange="updateBankImpGroupCat(${gi}, this.value)" title="Category (applies to all ${g.count})">${opts}</select>`;
+      }
+      typeCol = `<select onchange="updateBankImpGroupType(${gi}, this.value)" title="Type (applies to all ${g.count})">${typeOpts}</select>`;
     }
     const sign = g.type === "in" ? "+" : "−";
     const amtCls = g.type === "in" ? "in" : "out";
     const ruleTag = g.anyFromUserRule ? '<span class="rule-tag" title="At least one row matched a saved merchant rule">rule</span>' : '';
+    // Per-group "remember as rule" toggle. Only shown when the global learn checkbox
+    // is on and this isn't a paired-refund group (those never create rules). A row's
+    // noRule flag opts it out of rule-learning at import time.
+    const learnOn = document.getElementById("bankimp-learn")?.checked;
+    const grpNoRule = g.indices.some(i => _bankImpRows[i] && _bankImpRows[i].noRule);
+    const ruleToggle = (learnOn && !g.isRefundOnly)
+      ? `<button class="bankimp-rule-toggle${grpNoRule ? ' off' : ''}" onclick="toggleBankImpGroupRule(${gi})" title="${grpNoRule ? "Won't be remembered as a rule — click to remember" : "Will be remembered as a rule — click to skip"}">${grpNoRule ? '⊘ rule' : '✓ rule'}</button>`
+      : '';
     const dupTag = g.dupeCount ? `<span class="dupe-tag" title="${g.dupeCount} of ${g.count} look like duplicates">dup ${g.dupeCount}</span>` : '';
     const refundCount = g.indices.filter(i => _bankImpRows[i] && _bankImpRows[i].isRefund).length;
     const refundTag = refundCount ? `<span class="refund-tag" title="${refundCount} of ${g.count} paired with an original charge">↩ refund${refundCount>1?' '+refundCount:''}</span>` : '';
@@ -1878,7 +1913,7 @@ function renderBankImpGroupedList() {
       insertedRefundSep = true;
       sep += `<div class="bankimp-detail-sep bankimp-refund-sep">
         <div class="bankimp-detail-sep-h">Refunds · ${refundCount} already paired</div>
-        <div class="bankimp-detail-sep-sub">These will be saved tagged with the original charge's expense category — leave them alone unless you want to retag.</div>
+        <div class="bankimp-detail-sep-sub">Both sides of each pair are filed under a hidden “Refunds” category so they cancel out — they won't count as spending or income. Nothing to do here.</div>
       </div>`;
     }
     // Collapse state: complex groups start collapsed; refund-only & easy stay flat.
@@ -1887,15 +1922,18 @@ function renderBankImpGroupedList() {
       ? `<button class="bankimp-expand" onclick="toggleBankImpGroupExpand(${gi})" title="${expanded ? 'Collapse details' : 'Expand individual rows'}" aria-expanded="${expanded}">${expanded ? '▼' : '▶'}</button>`
       : "";
     const groupRowCls = `bankimp-row bankimp-row-grouped${dupCls}${skipCls}${ruleCls}${g.isComplex ? ' is-complex' : ''}${g.isRefundOnly ? ' is-refund-only' : ''}${g.isComplex && expanded ? ' is-expanded' : ''}`;
+    // Group note: applies to every row in the group. Pre-fill from the first row
+    // that already carries a note (they're kept in sync by updateBankImpGroupNote).
+    const grpNote = (g.indices.map(i => _bankImpRows[i] && _bankImpRows[i].note).find(n => n)) || "";
     const groupRow = `<div class="${groupRowCls}" data-grp="${gi}">
       <input type="checkbox" ${checkAttrs} onchange="toggleBankImpGroup(${gi}, this.checked)" title="Include all ${g.count}" />
-      <div class="bankimp-grp-merch">${chevron}<input type="text" value="${(g.name||'').replace(/"/g,'&quot;')}" oninput="updateBankImpGroupName(${gi}, this.value)" title="Renames all ${g.count} matching transactions" /></div>
+      <div class="bankimp-grp-merch">${chevron}<div class="bankimp-merch-stack"><input type="text" value="${(g.name||'').replace(/"/g,'&quot;')}" oninput="updateBankImpGroupName(${gi}, this.value)" title="Renames all ${g.count} matching transactions" /><input type="text" class="bankimp-note-input" placeholder="Add a note…" value="${grpNote.replace(/"/g,'&quot;')}" oninput="updateBankImpGroupNote(${gi}, this.value)" title="Note (applies to all ${g.count})" /></div></div>
       <span class="bankimp-count" title="${g.count} matching transactions">×${g.count}</span>
       <span class="amt ${amtCls}">${sign}${fmtGBP(g.total,{dp:2}).replace(/^[£+\-]+/,"")}</span>
       ${midCol}
-      <select onchange="updateBankImpGroupType(${gi}, this.value)" title="Type (applies to all ${g.count})">${typeOpts}</select>
+      ${typeCol}
       <span class="confidence">${g.minConfidence}%</span>
-      <span style="display:flex;gap:3px;justify-content:flex-end">${refundTag}${ruleTag}${dupTag}</span>
+      <span style="display:flex;gap:3px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${ruleToggle}${refundTag}${ruleTag}${dupTag}</span>
     </div>`;
     // Complex groups: render each child row individually only when expanded.
     // Refund-only groups: render a paired-charge sub-row under each refund.
@@ -1914,6 +1952,7 @@ function renderBankImpGroupedList() {
   document.getElementById("bankimp-list").innerHTML = head + rows;
   // After render, set the indeterminate property on partial-included group checkboxes.
   document.querySelectorAll('.bankimp-row-grouped input[type="checkbox"][data-partial="1"]').forEach(cb => { cb.indeterminate = true; });
+  _applyBankImpMasterState();
   updateBankImpCounts();
 }
 
@@ -1926,9 +1965,61 @@ function updateBankImpGroupName(gi, v) {
   g.indices.forEach(i => { if (_bankImpRows[i]) _bankImpRows[i].name = v; });
   // No re-render — would steal focus from the input mid-typing.
 }
+// Group note: write the same note onto every underlying row in the group, so it
+// imports on each transaction. No re-render — keeps focus in the input.
+function updateBankImpGroupNote(gi, v) {
+  const g = _bankImpGroupAt(gi); if (!g) return;
+  g.indices.forEach(i => { if (_bankImpRows[i]) _bankImpRows[i].note = v; });
+}
+// Toggle whether this group's rows are remembered as merchant rules on import.
+function toggleBankImpGroupRule(gi) {
+  const g = _bankImpGroupAt(gi); if (!g) return;
+  const turningOff = !g.indices.some(i => _bankImpRows[i] && _bankImpRows[i].noRule);
+  g.indices.forEach(i => { if (_bankImpRows[i]) _bankImpRows[i].noRule = turningOff; });
+  renderBankImpList();
+}
 function updateBankImpGroupCat(gi, v) {
   const g = _bankImpGroupAt(gi); if (!g) return;
+  if (v === "__newcat__") {
+    const wantType = g.type === "in" ? "in" : "exp";
+    promptDialog({
+      title: "New category",
+      message: `Name a new ${wantType === "in" ? "income" : "expense"} category — applies to all ${g.count} matching transactions.`,
+      placeholder: "e.g. Pet care, Side hustle",
+      confirmLabel: "Create",
+    }, (name) => {
+      const created = _addImportCustomCat(name, wantType);
+      if (created) g.indices.forEach(i => { if (_bankImpRows[i]) _bankImpRows[i].category = created; });
+      renderBankImpList();
+    });
+    renderBankImpList(); // roll the select back if cancelled
+    return;
+  }
   g.indices.forEach(i => { if (_bankImpRows[i]) _bankImpRows[i].category = v; });
+}
+// Create a custom category on the fly during import. Returns the category id used
+// (existing or new), or null if the name was blank. Reuses the same customCats
+// schema as the Settings category editor so it shows up everywhere afterwards.
+function _addImportCustomCat(rawName, type) {
+  const name = (rawName || "").trim();
+  if (!name) return null;
+  const s = getSettings();
+  const hidden = new Set(s.hiddenDefaultCats || []);
+  const existing = [
+    ...DEFAULT_EXP_CATS.filter(c => !hidden.has(c.id)).map(c => c.id),
+    ...DEFAULT_INC_CATS.filter(c => !hidden.has(c.id)).map(c => c.id),
+    ...((s.customCats || []).map(c => c.id)),
+  ];
+  // If the name already exists (case-insensitive), just reuse it.
+  const match = existing.find(id => id.toLowerCase() === name.toLowerCase());
+  if (match) return match;
+  s.customCats = s.customCats || [];
+  const icon = (typeof guessCatEmoji === "function" ? guessCatEmoji(name) : "") || "🏷️";
+  s.customCats.push({ id: name, icon, type });
+  lsSet("fin_settings", s);
+  if (typeof rebuildCatBy === "function") rebuildCatBy();
+  showToast(`Added category “${name}”`);
+  return name;
 }
 function updateBankImpGroupToAcct(gi, v) {
   const g = _bankImpGroupAt(gi); if (!g) return;
@@ -2052,6 +2143,18 @@ function toggleBankImpRow(i, checked) {
   if (row) row.classList.toggle("is-skipped", !checked);
   updateBankImpCounts();
 }
+// Master "select all / none" toggle in the import header. Flips every row's
+// include flag and re-renders so all checkboxes + the counts update at once.
+function toggleBankImpAll(checked) {
+  _bankImpRows.forEach(r => { r.include = !!checked; });
+  renderBankImpList();
+}
+// Compute the master-checkbox state: all on, all off, or partial (indeterminate).
+function _bankImpAllState() {
+  const total = _bankImpRows.length;
+  const on = _bankImpRows.filter(r => r.include).length;
+  return on === 0 ? "none" : (on === total ? "all" : "partial");
+}
 function updateBankImpName(i, v) { if (_bankImpRows[i]) _bankImpRows[i].name = v; }
 function updateBankImpCat(i, v) { if (_bankImpRows[i]) _bankImpRows[i].category = v; }
 function updateBankImpToAcct(i, v) {
@@ -2126,7 +2229,8 @@ function commitBankImport() {
     addedTxns.push(tx);
     added++;
     // Auto-learn merchant rule from this row (one per unique pattern).
-    if (learnRules) {
+    // Skipped globally (checkbox off) OR per-row when the user opted this one out.
+    if (learnRules && !r.noRule) {
       const pattern = deriveRulePattern(r.rawDesc);
       if (pattern && !learnedKeys.has(pattern)) {
         learnedKeys.add(pattern);
@@ -2402,11 +2506,19 @@ function _within30Days(a, b) {
   return Math.abs(da - db) <= 30 * 24 * 60 * 60 * 1000;
 }
 function applyRefundPairings(pairs) {
+  let existingTouched = false;
+  const existingTxns = getTxns();
+  const REF = (typeof REFUND_CAT !== "undefined") ? REFUND_CAT : "Refunds";
+  const _cn = (raw) => (cleanMerchant(raw).name || "").toLowerCase().trim();
   (pairs || []).forEach(p => {
     const r = _bankImpRows[p.refundIdx];
     if (!r) return;
     r.type = "in";
-    r.category = p.originalCategory;
+    // Both legs of a paired refund go into the hidden "Refunds" category so they
+    // net to zero and never count as real spending or income (nothing actually
+    // left the account). We remember the original's real category only for the
+    // informational ↑ ORIGINAL sub-row in the review list.
+    r.category = (typeof REFUND_CAT !== "undefined") ? REFUND_CAT : "Refunds";
     r.isRefund = true;
     // Store the paired original charge so renderers can show both sides.
     r.refundPair = {
@@ -2416,15 +2528,39 @@ function applyRefundPairings(pairs) {
       amount: p.originalAmount || r.amount,
       category: p.originalCategory || "",
     };
-    // When the original charge is in THIS import too, hide its standalone row
-    // from the main review list — it's already shown beneath the refund as the
-    // ↑ ORIGINAL sub-row, so the user shouldn't have to process it twice. It
-    // stays in _bankImpRows (still imported) so the −/+ pair nets to zero.
+    // When the original charge is in THIS import too, also file it under Refunds
+    // and hide its standalone row from the main review list — it's already shown
+    // beneath the refund as the ↑ ORIGINAL sub-row. Both legs import (so the
+    // pair is preserved) but both are excluded from totals.
     if (p.originalSource === "batch" && p.batchIdx != null) {
       const orig = _bankImpRows[p.batchIdx];
-      if (orig) { orig.pairedAsOriginal = true; orig.pairedRefundIdx = p.refundIdx; }
+      if (orig) {
+        orig.pairedAsOriginal = true;
+        orig.pairedRefundIdx = p.refundIdx;
+        orig.category = REF;
+        orig.isRefund = true;
+      }
+    } else if (p.originalSource === "existing") {
+      // The matched original charge is already in the user's saved data. Reclassify
+      // THAT charge into Refunds too, so the pair fully cancels (otherwise the older
+      // expense keeps counting as real spending — the Misc-leak bug). Match the same
+      // way findRefundPairs did: out-txn, same cleaned merchant, |amount| within 1p,
+      // and the captured original date. Reclassify the single best (most recent) hit.
+      const wantName = _cn(p.originalName || r.rawDesc || r.name);
+      const wantAmt = Math.abs(p.originalAmount != null ? p.originalAmount : r.amount);
+      let bestT = null;
+      existingTxns.forEach(t => {
+        if (normType(t) !== "out") return;
+        if (t.category === REF) return; // already filed
+        if (Math.abs((t.amount || 0) - wantAmt) > 0.01) return;
+        if (_cn(t.description || "") !== wantName) return;
+        if (p.originalDate && t.date && !_within30Days(t.date, p.originalDate)) return;
+        if (!bestT || (t.date || "") > (bestT.date || "")) bestT = t;
+      });
+      if (bestT) { bestT.category = REF; bestT.isRefund = true; existingTouched = true; }
     }
   });
+  if (existingTouched) lsSet("fin_txns", existingTxns);
 }
 
 // Show the issuer-pick modal. Calls back with "amex" | "santander" | "other".
@@ -2478,6 +2614,9 @@ function askStatementIssuer(parsed, guess, cb) {
     _bankImpGrouped = groupChk.checked;
     renderBankImpList();
   });
+  // Re-render so the per-row "remember as rule" toggles show/hide with the global checkbox.
+  const learnChk = document.getElementById("bankimp-learn");
+  if (learnChk) learnChk.addEventListener("change", () => renderBankImpList());
   document.getElementById("bankimp-modal").addEventListener("click", e => { if (e.target.id === "bankimp-modal") _tryCloseBankImpModal(); });
   // Statement-type toggle — re-classify all rows when the user flips bank ↔ credit card.
   const sourceSel = document.getElementById("bankimp-source-type");
@@ -2496,19 +2635,35 @@ function askStatementIssuer(parsed, guess, cb) {
 ════════════════════════════════════════ */
 let _ruleEditId = null;
 
+// Tracks which rule ids are ticked for bulk delete. Cleared on every full render
+// so it can't hold ids of rules that no longer exist.
+let _rulesSelected = new Set();
+
 function renderMerchantRules() {
   const list = document.getElementById("rules-list");
   if (!list) return;
   const rules = getMerchantRules();
+  // Drop any selected ids that no longer exist, then reflect count on the toolbar.
+  const liveIds = new Set(rules.map(r => String(r.id)));
+  _rulesSelected = new Set([..._rulesSelected].filter(id => liveIds.has(id)));
+  const deleteAllBtn = document.getElementById("rules-delete-all");
+  if (deleteAllBtn) deleteAllBtn.style.display = rules.length ? "" : "none";
+
   if (!rules.length) {
     list.innerHTML = `<div class="rules-empty">No rules yet. Import a bank statement and confirm any row — the merchant pattern is saved automatically.</div>`;
+    _updateRulesBulkBar();
     return;
   }
-  const head = `<div class="rules-head"><span>Pattern</span><span>Display name</span><span>Type</span><span>Category / To account</span><span></span></div>`;
+  const allOn = _rulesSelected.size === rules.length && rules.length > 0;
+  const partial = _rulesSelected.size > 0 && !allOn;
+  const masterCb = `<input type="checkbox" class="rules-master-cb" ${allOn?'checked':''} ${partial?'data-partial="1"':''} onchange="toggleAllRulesSelected(this.checked)" title="Select all / none" aria-label="Select all rules" />`;
+  const head = `<div class="rules-head">${masterCb}<span>Pattern</span><span>Display name</span><span>Type</span><span>Category / To account</span><span></span></div>`;
   const rows = rules.map(r => {
     const target = r.type === "transfer" ? (r.toAccount || "—") : (r.category || "—");
     const id = String(r.id).replace(/'/g, "\\'");
-    return `<div class="rules-row" data-id="${id}">
+    const checked = _rulesSelected.has(String(r.id)) ? "checked" : "";
+    return `<div class="rules-row${checked?' is-selected':''}" data-id="${id}">
+      <input type="checkbox" class="rules-row-cb" ${checked} onchange="toggleRuleSelected('${id}', this.checked)" aria-label="Select rule ${(r.name||r.pattern||'').replace(/"/g,'&quot;')}" />
       <span class="rule-pattern" title="${(r.pattern||'').replace(/"/g,'&quot;')}">${r.pattern || ''}</span>
       <span>${r.name || ''}</span>
       <span class="rule-type">${r.type || 'out'}</span>
@@ -2520,6 +2675,70 @@ function renderMerchantRules() {
     </div>`;
   }).join("");
   list.innerHTML = head + rows;
+  const mcb = list.querySelector(".rules-master-cb");
+  if (mcb) mcb.indeterminate = partial;
+  _updateRulesBulkBar();
+}
+
+// Show/update the "N selected · Delete selected" bar above the list.
+function _updateRulesBulkBar() {
+  let bar = document.getElementById("rules-bulk-bar");
+  const n = _rulesSelected.size;
+  if (!n) { if (bar) bar.remove(); return; }
+  const list = document.getElementById("rules-list");
+  if (!list) return;
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "rules-bulk-bar";
+    bar.className = "rules-bulk-bar";
+    list.parentNode.insertBefore(bar, list);
+  }
+  bar.innerHTML = `<span>${n} rule${n===1?'':'s'} selected</span>
+    <div class="rules-bulk-acts">
+      <button class="btn-ghost" onclick="toggleAllRulesSelected(false)">Clear</button>
+      <button class="btn-ghost danger" onclick="deleteSelectedRules()">Delete selected</button>
+    </div>`;
+}
+
+function toggleRuleSelected(id, on) {
+  if (on) _rulesSelected.add(String(id)); else _rulesSelected.delete(String(id));
+  renderMerchantRules();
+}
+function toggleAllRulesSelected(on) {
+  if (on) _rulesSelected = new Set(getMerchantRules().map(r => String(r.id)));
+  else _rulesSelected = new Set();
+  renderMerchantRules();
+}
+function deleteSelectedRules() {
+  const ids = [..._rulesSelected];
+  if (!ids.length) return;
+  confirmDialog({
+    title: `Delete ${ids.length} rule${ids.length===1?'':'s'}?`,
+    message: `This permanently removes the selected merchant rule${ids.length===1?'':'s'}. Your transactions aren't affected.`,
+    confirmLabel: `Delete ${ids.length}`,
+    danger: true,
+  }, () => {
+    const keep = getMerchantRules().filter(r => !_rulesSelected.has(String(r.id)));
+    setMerchantRules(keep);
+    _rulesSelected = new Set();
+    renderMerchantRules();
+    showToast(`Deleted ${ids.length} rule${ids.length===1?'':'s'}`);
+  });
+}
+function deleteAllRules() {
+  const n = getMerchantRules().length;
+  if (!n) return;
+  confirmDialog({
+    title: `Delete all ${n} rules?`,
+    message: `This permanently removes every saved merchant rule. Your transactions aren't affected — future imports just won't auto-fill from these patterns.`,
+    confirmLabel: "Delete all",
+    danger: true,
+  }, () => {
+    setMerchantRules([]);
+    _rulesSelected = new Set();
+    renderMerchantRules();
+    showToast(`Deleted ${n} rule${n===1?'':'s'}`);
+  });
 }
 
 function _ruleModalSyncCols() {
@@ -2613,6 +2832,8 @@ function deleteRule(id) {
     a.click(); URL.revokeObjectURL(url);
     showToast("Rules exported");
   });
+  const delAllBtn = document.getElementById("rules-delete-all");
+  if (delAllBtn) delAllBtn.addEventListener("click", deleteAllRules);
   document.getElementById("rules-import").addEventListener("click", () => document.getElementById("rules-import-file").click());
   document.getElementById("rules-import-file").addEventListener("change", e => {
     const file = e.target.files[0]; e.target.value = "";

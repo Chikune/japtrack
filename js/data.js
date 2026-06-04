@@ -487,6 +487,7 @@ function auditDataIntegrity() {
     ...DEFAULT_EXP_CATS.filter(c => !hidden.has(c.id)).map(c => c.id),
     ...DEFAULT_INC_CATS.filter(c => !hidden.has(c.id)).map(c => c.id),
     ...(s.customCats || []).map(c => c.id),
+    REFUND_CAT, // hidden system category for paired refunds — known, never an orphan
   ]);
   // Unified defined accounts = settings.accounts ∪ NW buckets (places money lives).
   const definedAccts = new Set([
@@ -668,7 +669,18 @@ const DEFAULT_INC_CATS = [
   { id: "Reimbursement", icon: "↩️", color: "oklch(65% 0.10 180)" },
   { id: "Other Income",  icon: "💰", color: "oklch(65% 0.10 100)" },
 ];
-const ALL_CATS = [...DEFAULT_EXP_CATS, ...DEFAULT_INC_CATS];
+// Hidden system category for paired refunds. Both legs of a refund pair (the
+// incoming refund AND its matched original charge) are filed here so they net to
+// zero and are excluded from every spending/income total — nothing actually left
+// the account. It never appears in category dropdowns (see getAllCats) and is
+// skipped by all aggregation helpers (see isRefundLeg / the chokepoints in utils.js).
+const REFUND_CAT = "Refunds";
+const REFUND_CAT_DEF = { id: REFUND_CAT, icon: "↩️", color: "oklch(62% 0.02 250)", hidden: true };
+// A transaction is a "refund leg" (excluded from totals) if it's filed under the
+// hidden Refunds category. Centralised so every aggregation uses the same rule.
+function isRefundLeg(t) { return !!t && t.category === REFUND_CAT; }
+
+const ALL_CATS = [...DEFAULT_EXP_CATS, ...DEFAULT_INC_CATS, REFUND_CAT_DEF];
 const CAT_BY   = Object.fromEntries(ALL_CATS.map(c => [c.id, {...c}]));
 
 /* ── Custom-cat & emoji-override helpers ── */
@@ -740,7 +752,7 @@ function rebuildCatBy() {
   const customs = s.customCats || [];
   const overrides = s.catEmojis || {};
   Object.keys(CAT_BY).forEach(k => delete CAT_BY[k]);
-  [...DEFAULT_EXP_CATS, ...DEFAULT_INC_CATS, ...customs].forEach(c => {
+  [...DEFAULT_EXP_CATS, ...DEFAULT_INC_CATS, REFUND_CAT_DEF, ...customs].forEach(c => {
     CAT_BY[c.id] = { ...c, icon: resolveIcon(c, overrides) };
   });
 }

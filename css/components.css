@@ -345,22 +345,33 @@ body:not(.booting) #boot-loader { display: none; }
 
 /* ── Merchant rules list ── */
 .rules-list { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
-.rules-row { display: grid; grid-template-columns: 1fr 1fr 90px 1fr 64px; gap: 14px; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; }
+.rules-row { display: grid; grid-template-columns: 26px 1fr 1fr 90px 1fr 64px; gap: 14px; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; }
 .rules-row:last-child { border-bottom: none; }
 .rules-row:hover { background: var(--bg-sunk); }
+.rules-row.is-selected { background: color-mix(in oklch, var(--accent) 8%, transparent); }
 .rules-row .rule-pattern { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rules-row .rule-type { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: var(--bg-sunk); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; text-align: center; width: fit-content; }
 .rules-row .rule-acts { display: flex; gap: 4px; justify-content: flex-end; }
 .rules-row .rule-acts button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink-3); cursor: pointer; display: grid; place-items: center; }
 .rules-row .rule-acts button:hover { background: var(--bg-sunk); color: var(--ink); }
 .rules-row .rule-acts .danger:hover { color: var(--neg); border-color: var(--neg); }
-.rules-head { display: grid; grid-template-columns: 1fr 1fr 90px 1fr 64px; gap: 14px; padding: 10px 14px; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--line); background: var(--bg-elev); }
+.rules-row .rules-row-cb, .rules-head .rules-master-cb { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+.rules-head { display: grid; grid-template-columns: 26px 1fr 1fr 90px 1fr 64px; gap: 14px; padding: 10px 14px; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--line); background: var(--bg-elev); align-items: center; }
 .rules-empty { padding: 18px; text-align: center; font-size: 12.5px; color: var(--ink-4); }
+/* Bulk-select toolbar shown above the list when one or more rules are ticked. */
+.rules-bulk-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; margin-bottom: 8px; border: 1px solid color-mix(in oklch, var(--accent) 40%, var(--line)); border-radius: 8px; background: color-mix(in oklch, var(--accent) 8%, var(--bg-elev)); font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.rules-bulk-bar .rules-bulk-acts { display: flex; gap: 8px; }
+.btn-ghost.danger { color: var(--neg); }
+.btn-ghost.danger:hover { background: color-mix(in oklch, var(--neg) 12%, transparent); border-color: var(--neg); }
 
 /* Rule tag in bank-import row (matches existing dupe-tag style) */
 .bankimp-row .rule-tag { font-size: 10.5px; color: var(--accent-ink); padding: 2px 5px; border: 1px solid var(--accent); border-radius: 4px; text-align: center; }
 /* Refund tag — same shape as rule/dup pills, green to signal "cancels a charge". */
 .bankimp-row .refund-tag, .refund-tag { font-size: 10.5px; color: var(--pos); padding: 2px 5px; border: 1px solid var(--pos); border-radius: 4px; text-align: center; }
+/* Per-row "remember as rule" toggle pill. On (green ✓) by default; off (muted ⊘) when opted out. */
+.bankimp-rule-toggle { font-size: 10.5px; padding: 2px 6px; border-radius: 4px; cursor: pointer; font: inherit; font-size: 10.5px; line-height: 1.4; white-space: nowrap; color: var(--accent-ink); border: 1px solid var(--accent); background: color-mix(in oklch, var(--accent) 10%, transparent); }
+.bankimp-rule-toggle:hover { background: color-mix(in oklch, var(--accent) 18%, transparent); }
+.bankimp-rule-toggle.off { color: var(--ink-4); border-color: var(--line); background: var(--bg-sunk); text-decoration: line-through; }
 
 /* ── Global focus states ── */
 button:focus-visible,
@@ -406,7 +417,7 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 /* ── Bank statement import review modal ── */
 .modal.bankimp-modal { width: min(1100px, calc(100vw - 40px)); max-height: calc(100vh - 60px); display: flex; flex-direction: column; }
 .bankimp-list { flex: 1; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-.bankimp-row { display: grid; grid-template-columns: 22px minmax(180px, 1fr) 96px 180px 100px 86px 56px; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; }
+.bankimp-row { display: grid; grid-template-columns: 26px minmax(180px, 1fr) 96px 188px 104px 64px 64px; gap: 14px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; }
 .bankimp-row:last-child { border-bottom: none; }
 .bankimp-row.is-dupe { opacity: 0.55; }
 .bankimp-row.is-skipped { opacity: 0.4; }
@@ -421,10 +432,13 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 .bankimp-row .confidence { font-family: "IBM Plex Mono", monospace; color: var(--accent-ink); font-size: 11.5px; }
 .bankimp-row .type-pill { font-size: 10.5px; text-align: center; padding: 2px 6px; border-radius: 999px; background: var(--bg-sunk); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
 .bankimp-row .dupe-tag { font-size: 10.5px; color: var(--warn); padding: 2px 5px; border: 1px solid var(--warn); border-radius: 4px; text-align: center; }
-.bankimp-head { display: grid; grid-template-columns: 22px minmax(180px, 1fr) 96px 180px 100px 86px 56px; gap: 10px; padding: 8px 10px; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--line); background: var(--bg-elev); position: sticky; top: 0; z-index: 1; }
+.bankimp-head { display: grid; grid-template-columns: 26px minmax(180px, 1fr) 96px 188px 104px 64px 64px; gap: 14px; padding: 11px 16px; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--line); background: var(--bg-elev); position: sticky; top: 0; z-index: 1; align-items: center; }
+/* Master select-all checkbox in the header — sized to match row checkboxes. */
+.bankimp-master-cb { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+.bankimp-head input[type="checkbox"], .bankimp-row > input[type="checkbox"], .bankimp-row-grouped > input[type="checkbox"], .bankimp-row-child > input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
 /* Grouped view: extra "Count" column between Merchant and Amount. */
 .bankimp-head-grouped,
-.bankimp-row-grouped { grid-template-columns: 22px minmax(180px, 1fr) 56px 96px 180px 100px 86px 56px !important; }
+.bankimp-row-grouped { grid-template-columns: 26px minmax(180px, 1fr) 56px 96px 188px 104px 64px 64px !important; }
 .bankimp-row-grouped .bankimp-count { font-family: "IBM Plex Mono", monospace; color: var(--accent-ink); font-size: 12px; text-align: center; padding: 3px 6px; border-radius: 6px; background: color-mix(in oklch, var(--accent) 14%, var(--bg-sunk)); }
 /* Complex / detailed-review group header has a left accent stripe so it's obvious it owns the child rows. */
 .bankimp-row-grouped.is-complex { background: color-mix(in oklch, var(--warn) 5%, transparent); border-left: 3px solid var(--warn); padding-left: 7px; }
@@ -432,10 +446,15 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 .bankimp-row-grouped.is-expanded { border-bottom-color: color-mix(in oklch, var(--warn) 30%, var(--line-2)); }
 /* Refund-only groups: subtle green stripe + tint so they read as "already settled, nothing to do". */
 .bankimp-row-grouped.is-refund-only { background: color-mix(in oklch, var(--pos) 4%, transparent); border-left: 3px solid color-mix(in oklch, var(--pos) 60%, var(--line)); padding-left: 7px; }
-/* Merchant cell becomes a flex container so the chevron and input can sit side-by-side. */
-.bankimp-grp-merch { display: flex; gap: 6px; align-items: center; min-width: 0; }
-.bankimp-grp-merch input[type="text"] { flex: 1; min-width: 0; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-elev); color: var(--ink); font: inherit; font-size: 12.5px; outline: none; }
+/* Merchant cell: chevron sits beside a vertical stack of name + note inputs. */
+.bankimp-grp-merch { display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
+.bankimp-merch-stack { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.bankimp-grp-merch input[type="text"] { min-width: 0; width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-elev); color: var(--ink); font: inherit; font-size: 12.5px; outline: none; }
 .bankimp-grp-merch input[type="text"]:focus { border-color: var(--ink-3); }
+.bankimp-grp-merch .bankimp-note-input { font-size: 11.5px; padding: 4px 7px; color: var(--ink-2); font-style: italic; background: var(--bg); }
+.bankimp-grp-merch .bankimp-note-input::placeholder { color: var(--ink-4); font-style: italic; }
+/* Read-only category / type labels shown on locked (paired-refund) group rows. */
+.bankimp-locked { font-size: 12px; color: var(--pos); display: inline-flex; align-items: center; padding: 5px 7px; border: 1px dashed color-mix(in oklch, var(--pos) 45%, var(--line)); border-radius: 6px; background: color-mix(in oklch, var(--pos) 6%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Chevron / expand button on complex group headers. */
 .bankimp-expand { width: 22px; height: 22px; flex: 0 0 22px; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid color-mix(in oklch, var(--warn) 40%, var(--line)); border-radius: 5px; background: var(--bg); color: var(--warn); font: inherit; font-size: 10px; line-height: 1; cursor: pointer; }
 .bankimp-expand:hover { background: color-mix(in oklch, var(--warn) 12%, var(--bg)); }
@@ -463,7 +482,7 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 .bankimp-pair-cat { font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bankimp-pair-src { font-size: 10.5px; color: var(--ink-4); white-space: nowrap; font-style: italic; text-align: right; }
 /* Child rows (per-row detail under a complex group). One column shorter than the group head — date instead of count. */
-.bankimp-row-child { display: grid; grid-template-columns: 22px minmax(220px, 1fr) 64px 96px 180px 100px 86px 56px; gap: 10px; align-items: center; padding: 8px 10px 8px 26px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; background: color-mix(in oklch, var(--bg-sunk) 30%, transparent); }
+.bankimp-row-child { display: grid; grid-template-columns: 26px minmax(220px, 1fr) 64px 96px 188px 104px 64px 64px; gap: 14px; align-items: center; padding: 10px 16px 10px 30px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; background: color-mix(in oklch, var(--bg-sunk) 30%, transparent); }
 .bankimp-row-child .bankimp-child-merch { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .bankimp-row-child .bankimp-note-input { font-size: 11.5px !important; padding: 4px 7px !important; color: var(--ink-2); font-style: italic; background: var(--bg) !important; }
 .bankimp-row-child .bankimp-note-input::placeholder { color: var(--ink-4); font-style: italic; }

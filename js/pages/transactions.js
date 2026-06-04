@@ -21,6 +21,9 @@ let _txDateTo = "";
 let _txAllSearchQ = "";
 let _txAllSort = "date-desc";
 let _txAllPage = 0;
+// The page size actually rendered last (set by renderTxAllTable). In fit-mode this
+// differs from _txAllPageSize, so select-all / sync must use THIS to match the view.
+let _txEffSize = 25;
 // Page size is user-configurable + persisted. "fit" (default) shows just enough rows to
 // fill the viewport without scrolling; "all" disables paging.
 const _TX_PAGE_SIZE_OPTIONS = ["fit", 25, 50, 100, "all"];
@@ -339,6 +342,9 @@ function renderTxAllTable(filtered) {
   const pages = effSize === Infinity ? 1 : Math.max(1, Math.ceil(filtered.length / effSize));
   if (_txAllPage >= pages) _txAllPage = pages - 1;
   if (_txAllPage < 0) _txAllPage = 0;
+  // Record the size we actually rendered so select-all / sync use the SAME slice
+  // as what's on screen (fit-mode measures a different size than _txAllPageSize).
+  _txEffSize = effSize;
   const start = effSize === Infinity ? 0 : _txAllPage * effSize;
   const slice = filtered.slice(start, start + effSize);
   tbody.innerHTML = buildTxRows(slice);
@@ -424,8 +430,8 @@ function toggleTxSelected(id) {
 }
 function toggleTxAllSelected(checked) {
   const filtered = applyTxFilters();
-  const start = _txAllPage * _txAllPageSize;
-  const slice = filtered.slice(start, start + _txAllPageSize);
+  const start = _txEffSize === Infinity ? 0 : _txAllPage * _txEffSize;
+  const slice = filtered.slice(start, start + _txEffSize);
   if (checked) slice.forEach(t => _txSelected.add(String(t.id)));
   else slice.forEach(t => _txSelected.delete(String(t.id)));
   renderTxAllTable(filtered);
@@ -433,8 +439,8 @@ function toggleTxAllSelected(checked) {
 }
 function syncTxAllCheck() {
   const filtered = applyTxFilters();
-  const start = _txAllPage * _txAllPageSize;
-  const slice = filtered.slice(start, start + _txAllPageSize);
+  const start = _txEffSize === Infinity ? 0 : _txAllPage * _txEffSize;
+  const slice = filtered.slice(start, start + _txEffSize);
   const allOn = slice.length > 0 && slice.every(t => _txSelected.has(String(t.id)));
   const ck = document.getElementById("tx-all-check");
   if (ck) ck.checked = allOn;

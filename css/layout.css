@@ -343,9 +343,16 @@ body.tauri .main { height: 100%; }
 /* Show greeting + period nav only when the home page is active (CSS :has avoids any JS) */
 .main:has(#page-home.active) .topbar-home-greet,
 .main:has(#page-home.active) .topbar-home-period { display: flex; }
-/* Home topbar is a touch taller so the stacked greeting + date block centers nicely.
+/* Home topbar is taller and the greeting sits lower, so the stacked greeting + date
+   block lines up with where page headings sit on other pages (e.g. Transactions).
    Scoped to Home only — every other page keeps the standard 13px topbar padding. */
-.main:has(#page-home.active) .topbar { padding-top: 14px; padding-bottom: 14px; }
+.main:has(#page-home.active) .topbar { padding-top: 30px; padding-bottom: 18px; align-items: flex-start; }
+/* Align the search bar, icons, Add button, and month picker to the greeting's
+   first line (the title), not the whole stacked block, so the top row reads level. */
+.main:has(#page-home.active) .topbar > .search-wrap,
+.main:has(#page-home.active) .topbar > .top-add,
+.main:has(#page-home.active) .topbar > .icon-btn,
+.main:has(#page-home.active) .topbar > .topbar-home-period { align-self: flex-start; }
 .month-pick {
   display: flex; align-items: center; gap: 2px; padding: 3px;
   background: var(--bg-sunk); border-radius: 8px;
