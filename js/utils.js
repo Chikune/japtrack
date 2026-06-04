@@ -345,8 +345,11 @@ function ymLabel(ym) {
 ════════════════════════════════════════ */
 function confirmDialog(opts, onConfirm) {
   if (typeof opts === "string") opts = { message: opts };
+  // Optional: opts.onCancel runs when the user picks the cancel button (not on
+  // backdrop/Escape dismiss). Lets a dialog offer two real choices.
+  const onCancel = opts.onCancel;
   const m = document.getElementById("confirm-modal");
-  if (!m) { if (window.confirm(opts.message || "Are you sure?")) onConfirm && onConfirm(); return; }
+  if (!m) { if (window.confirm(opts.message || "Are you sure?")) onConfirm && onConfirm(); else onCancel && onCancel(); return; }
   const titleEl = document.getElementById("confirm-title");
   const msgEl = document.getElementById("confirm-msg");
   const ok = document.getElementById("confirm-ok");
@@ -369,7 +372,7 @@ function confirmDialog(opts, onConfirm) {
     document.removeEventListener("keydown", onKey);
   };
   ok.onclick = () => { cleanup(); onConfirm && onConfirm(); };
-  cancel.onclick = cleanup;
+  cancel.onclick = () => { cleanup(); onCancel && onCancel(); };
   m.addEventListener("click", onBackdrop);
   document.addEventListener("keydown", onKey);
 }

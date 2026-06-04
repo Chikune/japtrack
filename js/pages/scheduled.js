@@ -19,10 +19,21 @@ function ensureBillsFromTxns(addedTxns) {
   const isBillCat = c => /repayment|subscription/i.test(c || "");
   const norm = s => (s || "").toLowerCase().trim();
   const recs = getRecurring();
-  const existsKey = (desc, amt) => recs.some(r =>
+  const exactMatch = (desc, amt) => recs.some(r =>
     norm(r.description) === norm(desc) && Math.abs((r.amount || 0) - amt) < 0.01);
-  // Also dedupe within the imported batch itself (e.g. multiple Netflix charges).
+  // A bill with the same description but a DIFFERENT amount — likely a price change
+  // (e.g. Three Network £10 → £25), not a brand-new subscription. We ask the user.
+  const sameDescDiffAmt = (desc, amt) => recs.find(r =>
+    norm(r.description) === norm(desc) && Math.abs((r.amount || 0) - amt) >= 0.01);
+  const dayOf = (t) => { const m = (t.date || "").match(/^\d{4}-\d{2}-(\d{2})$/); return m ? Math.max(1, Math.min(31, parseInt(m[1], 10) || 1)) : 1; };
+  const newRec = (t, amt, idx) => ({
+    id: Date.now() + Math.floor(Math.random() * 100000) + idx,
+    description: t.description, amount: amt, day: dayOf(t),
+    type: "out", category: t.category, account: t.account || "", period: "monthly"
+  });
+
   const seenInBatch = new Set();
+  const ambiguous = []; // price-change candidates → resolved via prompts after the pass
   let added = 0;
   addedTxns.forEach((t, idx) => {
     if (!t) return;
@@ -33,23 +44,45 @@ function ensureBillsFromTxns(addedTxns) {
     if (amt <= 0) return;
     const batchKey = norm(t.description) + "|" + amt.toFixed(2);
     if (seenInBatch.has(batchKey)) return;
-    if (existsKey(t.description, amt)) { seenInBatch.add(batchKey); return; }
-    const m = (t.date || "").match(/^\d{4}-\d{2}-(\d{2})$/);
-    const dayN = m ? Math.max(1, Math.min(31, parseInt(m[1], 10) || 1)) : 1;
-    recs.push({
-      id: Date.now() + Math.floor(Math.random() * 100000) + idx,
-      description: t.description,
-      amount: amt,
-      day: dayN,
-      type: "out",
-      category: t.category,
-      account: t.account || "",
-      period: "monthly"
-    });
     seenInBatch.add(batchKey);
+    if (exactMatch(t.description, amt)) return;            // already a bill at this price
+    const existing = sameDescDiffAmt(t.description, amt);
+    if (existing) { ambiguous.push({ t, amt, idx, existing }); return; } // ask the user
+    recs.push(newRec(t, amt, idx));                        // genuinely new bill
     added++;
   });
   if (added) lsSet("fin_recurring", recs);
+
+  // Resolve price-change candidates one at a time so the user can decide per bill:
+  // update the existing bill's amount, or add it as a separate new bill.
+  if (ambiguous.length && typeof confirmDialog === "function") {
+    let i = 0;
+    const next = () => {
+      if (i >= ambiguous.length) { renderAll(); return; }
+      const { t, amt, idx, existing } = ambiguous[i++];
+      confirmDialog({
+        title: "Same bill at a new price?",
+        message: `“${existing.description}” is already a recurring bill at ${fmtGBP(existing.amount,{dp:2})}, but this import has ${fmtGBP(amt,{dp:2})}. Is this the same bill with a new price, or a separate new bill?`,
+        confirmLabel: "Update the amount",
+        cancelLabel: "Add as new bill",
+        danger: false,
+        onCancel: () => {   // Add as a separate new bill
+          const list = getRecurring();
+          list.push(newRec(t, amt, idx));
+          lsSet("fin_recurring", list);
+          showToast(`Added “${t.description}” as a new bill`);
+          next();
+        },
+      }, () => {            // Update the existing bill's amount
+        const list = getRecurring();
+        const r = list.find(x => String(x.id) === String(existing.id));
+        if (r) { r.amount = amt; r.day = dayOf(t); lsSet("fin_recurring", list); }
+        showToast(`Updated “${existing.description}” to ${fmtGBP(amt,{dp:0})}`);
+        next();
+      });
+    };
+    next();
+  }
   return added;
 }
 
