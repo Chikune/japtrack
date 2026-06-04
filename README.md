@@ -1,104 +1,71 @@
-# Ledger
+# Japtrack
 
-Single-file vanilla-JS personal finance app. Ships three ways:
+A private, local-first personal finance app — transactions, budgets, bills &
+subscriptions, accounts, savings goals, cash-flow forecasting, a debt-payoff
+calculator, and reports. Built with [Tauri](https://tauri.app) (a tiny Rust
+shell around a web UI), so the installers are small and use the operating
+system's built-in web engine.
 
-1. **Browser** — open `ledger.html` directly.
-2. **PWA** — install from any modern browser (own icon, full-screen, offline).
-3. **Native Windows app** — `dist/Ledger.exe` (3 MB, no Chrome required).
+**Your data never leaves your device.** Everything is stored locally in the OS
+app-data folder (`%APPDATA%` on Windows, `~/Library/Application Support` on
+macOS). None of it is in this repository.
 
-All data lives in `localStorage`.
+## Download & install
 
-## Files
+Grab the installer for your machine from the
+[**Releases**](../../releases) page:
 
-### Web app (source of truth)
-| File | What it is |
-|---|---|
-| `ledger.html` | The whole app — edit this for any change. |
-| `manifest.webmanifest` | PWA manifest (name, icons, theme). |
-| `sw.js` | Service worker (offline cache, stale-while-revalidate). Bump `CACHE = "ledger-v2"` after edits to invalidate old caches. |
-| `icon-192.png` / `icon-512.png` / `icon-512-maskable.png` | PWA icons. |
+| Platform | File | Notes |
+|---|---|---|
+| **Windows** | `Japtrack_*_x64-setup.exe` | Fully self-contained. Auto-downloads Microsoft's WebView2 runtime only if your PC doesn't already have it. Double-click to install. |
+| **macOS — Apple Silicon** (M1/M2/M3/M4) | `Japtrack_*_aarch64.dmg` | Open the `.dmg`, drag Japtrack to Applications. |
+| **macOS — Intel** | `Japtrack_*_x64.dmg` | Same — open the `.dmg`, drag to Applications. |
 
-### Native app
-| File / folder | What it is |
-|---|---|
-| `dist/Ledger.exe` | Standalone 3 MB executable. Just double-click. Uses Windows' built-in WebView2. |
-| `dist/Ledger_1.0.0_x64-setup.exe` | NSIS installer (1 MB) — Start menu shortcut, uninstaller. |
-| `dist/Ledger_1.0.0_x64_en-US.msi` | MSI installer (1.6 MB) — for Group Policy / managed deployment. |
-| `src-tauri/` | Tauri / Rust project that wraps the HTML into a native binary. Don't edit `web/` (auto-copied from project root before each build). |
+> **macOS first launch:** this is an unsigned build, so Gatekeeper blocks a
+> normal double-click the first time. **Right-click the app → Open → Open** to
+> approve it once; it opens normally after that.
 
-### Project
-| File / folder | What it is |
-|---|---|
-| `templates/import-template.csv` | CSV template for transaction import. |
-| `notes.txt` | Personal notes. |
-| `.claude/` | Claude Code config. |
-| `archive/` | Old versions and the legacy v1 dashboard — kept for reference. |
+Nothing else needs downloading — the app's HTML/CSS/JS and icons are all bundled
+inside the installer.
 
-## Run in the browser
+## Building the installers (maintainer)
+
+Mac `.dmg` files can only be built on macOS, so cross-platform builds run on
+GitHub Actions (free Windows + macOS runners). The workflow lives in
+[`.github/workflows/release.yml`](.github/workflows/release.yml).
+
+**To ship a new version:**
+
+1. Bump `"version"` in `src-tauri/tauri.conf.json` (e.g. `1.0.0` → `1.0.1`).
+2. Commit and push.
+3. Tag and push the tag:
+   ```sh
+   git tag v1.0.1
+   git push --tags
+   ```
+4. Watch the **Actions** tab. When the three build jobs finish, a **draft
+   Release** appears with all installers attached. Open it, click **Publish**,
+   and share the link.
+
+Manual build without a tag: **Actions → Build installers → Run workflow** — the
+installers appear as downloadable artifacts on the run page (no Release created).
+
+### Local Windows-only build
 
 ```sh
-python -m http.server 8766
-```
-
-Open <http://localhost:8766/ledger.html>. `localhost` counts as a secure origin so the service worker activates and the install button works.
-
-## Install as PWA
-
-- **Desktop Chrome / Edge**: install icon in the URL bar, or click the ⬇ button in the topbar.
-- **iOS Safari**: Share → Add to Home Screen.
-- **Android Chrome**: "Install app" prompt or browser menu → Install.
-
-## Run native (Windows)
-
-Just double-click `dist/Ledger.exe`. No browser involved at runtime — the binary uses Windows' bundled WebView2 (already installed on Windows 11 and modern Windows 10).
-
-To install with a Start menu shortcut, run `dist/Ledger_1.0.0_x64-setup.exe` instead.
-
-## Rebuild the native app after edits
-
-After editing `ledger.html`, rebuild the .exe:
-
-```powershell
-$env:CARGO_HOME       = "D:\cargo"
-$env:RUSTUP_HOME      = "D:\rustup"
-$env:CARGO_TARGET_DIR = "D:\cargo-target"
-$env:TMP              = "D:\tmp"
-$env:TEMP             = "D:\tmp"
-$env:PATH             = "D:\cargo\bin;${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC;$env:PATH"
-cd "C:\Users\J\Documents\Claude Projects\src-tauri"
+# from the repo root, with the Rust toolchain + Tauri CLI installed
 cargo tauri build
 ```
+Produces `src-tauri/target/release/bundle/nsis/Japtrack_*_x64-setup.exe`.
 
-Build outputs land in `D:\cargo-target\release\` and `D:\cargo-target\release\bundle\`.
-Then copy the new binary / installers into `dist/` (or replace in place).
+## Project layout
 
-For a fast dev loop with hot reload, use `cargo tauri dev` instead — saves to `ledger.html` reload the running window in ~1 second.
-
-The first build is ~10 min (Rust compiles all dependencies). Subsequent builds after editing `ledger.html` are ~30 seconds since only the asset bundle changes.
-
-## Deploy as a website
-
-Drop these onto any HTTPS host (Cloudflare Pages, Netlify Drop, GitHub Pages):
-
-```
-ledger.html
-manifest.webmanifest
-sw.js
-icon-192.png
-icon-512.png
-icon-512-maskable.png
-```
-
-## Data
-
-Everything is in browser `localStorage`:
-- `fin_txns` — transactions
-- `fin_budgets` — monthly budgets
-- `fin_nw_entries` — net worth snapshots
-- `fin_recurring` — scheduled / recurring items
-- `fin_goals` — savings goals
-- `fin_settings` — name, currency, theme, accent, custom categories, etc.
-
-Use **Settings → Data** to export a full JSON backup, export transactions to CSV, or import either format.
-
-> Note: data is **per-runtime**. Browser localStorage and the native-app storage are separate buckets. Use Settings → Data → Export JSON to move between them.
+| Path | What it is |
+|---|---|
+| `index.html` | App shell — loads the CSS/JS modules below. |
+| `css/` | Styles (`variables`, `layout`, `components`, `pages`). |
+| `js/` | App logic. `js/pages/` holds one module per screen (dashboard, transactions, budgets, accounts, goals, forecast, debt, settings, …). |
+| `icons/` | App icons for every platform (`.ico`, `.icns`, PNGs). |
+| `assets/` | Brand logos used at runtime. |
+| `sw.js` / `manifest.webmanifest` | Service worker + manifest (web/PWA build only). |
+| `src-tauri/` | The Tauri/Rust wrapper. `copy-web.ps1` copies the web files into `src-tauri/web/` and cache-stamps them before each build. Don't edit `src-tauri/web/` directly — it's generated. |
