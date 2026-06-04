@@ -1174,10 +1174,15 @@ function renderRepTrends() {
 
   // Match the viewBox to the card's real aspect ratio so the chart fills the box
   // (preserveAspectRatio="meet" then scales it up with no letterboxing or stretch).
+  // The card is split: the SVG chart on the left, a fixed-width legend panel on the
+  // right. Compute the chart's true aspect ratio (container width minus the legend)
+  // so the viewBox matches and the chart fills its half with no stretch/letterbox.
   const W = 1200;
-  const cw = el.clientWidth || 1200, ch = el.clientHeight || 320;
+  const LEGEND_W = 200; // keep in sync with .rt-legend-panel width in CSS
+  const cw = Math.max((el.clientWidth || 1200) - LEGEND_W, 320);
+  const ch = el.clientHeight || 320;
   const H = Math.round(W * (ch / Math.max(cw, 1))) || 320;
-  const pad = { l: 60, r: 56, t: 16, b: 48 };
+  const pad = { l: 56, r: 16, t: 16, b: 48 };
   const xi = i => pad.l + (i / Math.max(months.length - 1, 1)) * (W - pad.l - pad.r);
   const yi = v => pad.t + (1 - (v - ymin) / (ymax - ymin)) * (H - pad.t - pad.b);
 
@@ -1217,34 +1222,34 @@ function renderRepTrends() {
     return `<g class="rt-series" data-cat-i="${ci}"><path d="${path}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>${dots}</g>`;
   }).join("");
 
-  // Right-edge inline labels: print "£amt" at the line's last point, vertically
-  // de-collide so two close categories don't overlap.
-  const rightLabels = (() => {
-    const items = topCats.map((cat, ci) => ({ cat, ci, y: yi(series[ci][series[ci].length - 1]), v: series[ci][series[ci].length - 1] }));
-    items.sort((a, b) => a.y - b.y);
-    const minGap = 14;
-    for (let i = 1; i < items.length; i++) {
-      if (items[i].y - items[i-1].y < minGap) items[i].y = items[i-1].y + minGap;
-    }
-    return items.map(({ cat, ci, y, v }) => {
-      const color = colorFor(cat, ci);
-      return `<text x="${(W-pad.r+8).toFixed(1)}" y="${y.toFixed(1)}" dominant-baseline="middle" style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;fill:${color}">${_fmtAxisGBP(v)}</text>`;
-    }).join("");
-  })();
-
-  // Legend below the chart — small pills with colour swatch + name.
-  const legend = topCats.map((cat, ci) => `<span class="rt-legend-pill"><i style="background:${colorFor(cat, ci)}"></i>${cat}</span>`).join("");
+  // Right-side legend panel: colour swatch + category name + its current (latest
+  // month) spend. Sorted high→low so the biggest categories sit at the top. This
+  // also fills the horizontal space the chart used to leave empty.
+  const legend = topCats
+    .map((cat, ci) => ({ cat, ci, color: colorFor(cat, ci), v: series[ci][series[ci].length - 1] }))
+    .sort((a, b) => b.v - a.v)
+    .map(({ cat, ci, color, v }) =>
+      `<div class="rt-leg-row" data-cat-i="${ci}">
+         <span class="rt-leg-sw" style="background:${color}"></span>
+         <span class="rt-leg-name">${cat}</span>
+         <span class="rt-leg-amt">${_fmtAxisGBP(v)}</span>
+       </div>`).join("");
 
   const svgId = "rep-trends-svg", lineId = "rep-trends-cross", tipId = "rep-trends-tip";
   el.innerHTML = `
-    <div class="rt-wrap">
-      <svg id="${svgId}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" width="100%" style="display:block">
-        ${gridLines}${xLabels}${linesSvg}${rightLabels}
-        <line id="${lineId}" x1="0" x2="0" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1" opacity="0" vector-effect="non-scaling-stroke"/>
-      </svg>
-      <div id="${tipId}" class="rt-tip" style="display:none"></div>
-    </div>
-    <div class="rt-legend">${legend}</div>`;
+    <div class="rt-layout">
+      <div class="rt-wrap">
+        <svg id="${svgId}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" width="100%" style="display:block">
+          ${gridLines}${xLabels}${linesSvg}
+          <line id="${lineId}" x1="0" x2="0" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1" opacity="0" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div id="${tipId}" class="rt-tip" style="display:none"></div>
+      </div>
+      <div class="rt-legend-panel">
+        <div class="rt-legend-title">Current spend</div>
+        ${legend}
+      </div>
+    </div>`;
 
   const svg = document.getElementById(svgId);
   const tip = document.getElementById(tipId);
