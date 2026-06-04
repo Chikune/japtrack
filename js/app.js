@@ -119,6 +119,33 @@ document.querySelectorAll(".nav-item[data-page]").forEach(btn => {
 });
 document.getElementById("settings-btn").addEventListener("click", () => switchPage("settings"));
 
+/* Help page: scroll-spy that highlights the table-of-contents link for the
+   section currently in view, and smooth-scrolls when a TOC link is clicked. */
+(function wireHelpToc() {
+  const toc = document.getElementById("help-toc");
+  if (!toc) return;
+  const links = [...toc.querySelectorAll(".help-toc-link")];
+  const byId = id => links.find(a => a.getAttribute("href") === "#" + id);
+  // Smooth-scroll within the .main scroller (anchors don't natively scroll a nested
+  // overflow container reliably across all webviews).
+  links.forEach(a => a.addEventListener("click", e => {
+    const id = a.getAttribute("href").slice(1);
+    const sec = document.getElementById(id);
+    if (sec) { e.preventDefault(); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }));
+  const sections = [...document.querySelectorAll("#page-help .help-sec")];
+  if (!sections.length || !("IntersectionObserver" in window)) return;
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        const link = byId(en.target.id);
+        if (link) { links.forEach(l => l.classList.remove("active")); link.classList.add("active"); }
+      }
+    });
+  }, { root: document.querySelector(".main"), rootMargin: "0px 0px -70% 0px", threshold: 0 });
+  sections.forEach(s => obs.observe(s));
+})();
+
 // Accounts page inner tabs — switch between Accounts and Net worth without leaving the page
 (function wireAccTabs() {
   const tabs = document.getElementById("acc-tabs");
