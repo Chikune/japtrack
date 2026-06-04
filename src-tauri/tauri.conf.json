@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Japtrack",
+  "version": "1.0.0",
+  "identifier": "com.ledger.dashboard",
+  "build": {
+    "beforeBuildCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File src-tauri/copy-web.ps1",
+    "beforeDevCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File src-tauri/copy-web.ps1",
+    "frontendDist": "web"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Japtrack",
+        "url": "index.html",
+        "width": 1500,
+        "height": 960,
+        "minWidth": 880,
+        "minHeight": 560,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Finance",
+    "shortDescription": "Personal finance — Japtrack",
+    "longDescription": "Japtrack: transactions, budgets, scheduled payments, net worth tracking, savings goals, and cash flow forecasting. All data stored locally.",
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

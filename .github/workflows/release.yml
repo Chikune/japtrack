@@ -1,0 +1,95 @@
+# Build Japtrack installers for Windows + macOS and upload as a GitHub release.
+#
+# How to ship a new build to a friend:
+#   1. Bump "version" in src-tauri/tauri.conf.json (e.g. 1.0.0 -> 1.0.1).
+#   2. git commit + push.
+#   3. git tag v1.0.1 && git push --tags
+#   4. Watch the Actions tab — when all 3 jobs finish, a draft release appears
+#      under "Releases". Open it, click Publish, then send the download URL.
+#
+# Manual run (no tag needed): Actions tab -> "Build installers" -> Run workflow.
+# Manual runs produce build artifacts on the run page (no release created).
+#
+# Outputs:
+#   - Japtrack_<ver>_x64-setup.exe   — Windows installer (auto-downloads
+#                                       WebView2 if missing — fully self-contained)
+#   - Japtrack_<ver>_aarch64.dmg     — macOS installer for Apple Silicon
+#   - Japtrack_<ver>_x64.dmg         — macOS installer for Intel Macs
+
+name: Build installers
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write   # needed for tauri-action to create/update the release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macOS (Apple Silicon)
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            label: macOS (Intel)
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: Windows x64
+    runs-on: ${{ matrix.platform }}
+    name: Build ${{ matrix.label }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # tauri-action invokes `cargo tauri build` with the right target, packages
+      # the bundle, and (on a tag push) drafts a GitHub release with the
+      # installer attached. On workflow_dispatch it just builds and uploads as
+      # workflow artifacts (no release).
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: '.'
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: 'Japtrack ${{ github.ref_name }}'
+          releaseBody: |
+            Download the right installer for your machine:
+
+            - **Windows** — `Japtrack_*_x64-setup.exe`
+              (auto-downloads the Microsoft WebView2 runtime if it isn't already installed)
+            - **macOS (Apple Silicon — M1/M2/M3/M4)** — `Japtrack_*_aarch64.dmg`
+            - **macOS (Intel)** — `Japtrack_*_x64.dmg`
+
+            macOS users: right-click the app the first time and choose *Open*
+            (this is an unsigned build, so Gatekeeper will refuse a normal
+            double-click on first launch).
+
+            Your data is stored locally — nothing leaves your device.
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }}
+
+      # Also expose the built installers as workflow artifacts so manual runs
+      # (workflow_dispatch, no tag) still produce downloadable files. The release
+      # upload above only happens when the workflow was triggered by a tag push.
+      - name: Upload installer as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: japtrack-${{ matrix.target }}
+          if-no-files-found: ignore
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg

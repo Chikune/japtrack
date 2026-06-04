@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="140" viewBox="0 0 480 140">
+  <rect width="480" height="140" fill="#1b1612"></rect>
+  <g transform="translate(0 22) scale(0.8)">
+  <path d="M16 88 L46 46 L76 68 L104 32" stroke="#f5ede1" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.32"></path>
+  <circle cx="16" cy="88" r="9" fill="#f5ede1"></circle>
+  <circle cx="46" cy="46" r="11" fill="#f5ede1"></circle>
+  <circle cx="76" cy="68" r="9" fill="#f5ede1"></circle>
+  <circle cx="104" cy="32" r="15" fill="#e87f25"></circle>
+  </g>
+  <text x="120" y="92.4" font-family="&#39;Space Grotesk&#39;, -apple-system, BlinkMacSystemFont, sans-serif" font-weight="600" font-size="64" letter-spacing="-1.5" fill="#f5ede1">Japtrack</text>
+</svg>

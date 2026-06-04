@@ -1,0 +1,34 @@
+# ── Build output ───────────────────────────────────────────────
+# Rust/Tauri compiled artifacts (rebuilt by CI; huge)
+src-tauri/target/
+target/
+# Local installer snapshots (CI produces the real ones)
+build/
+
+# ── Bulk local-only snapshots (not needed to build the app) ─────
+versions/
+archive/
+
+# ── Dependencies ───────────────────────────────────────────────
+node_modules/
+
+# ── Local tooling config (machine-specific, not needed to build) ─
+.claude/
+
+# ── OS / editor cruft ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ── Personal / sensitive (defense-in-depth) ────────────────────
+# The app's real data lives in the OS app-data dir (%APPDATA% / ~/Library),
+# NOT in this repo. These patterns just guarantee nothing personal is ever
+# committed even if a stray copy lands in the tree.
+data.json
+*.bak
+bak*.json
+*.local
+.env
+.env.*
+secrets*

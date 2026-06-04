@@ -1,0 +1,104 @@
+﻿:root {
+  /* ── Surfaces ── */
+  --bg:          #fafaf9;
+  --bg-elev:     #ffffff;
+  --bg-sunk:     #f5f4f1;
+
+  /* ── Ink ── */
+  --ink:         #1c1917;
+  --ink-2:       #44403c;
+  --ink-3:       #78716c;
+  --ink-4:       #a8a29e;
+
+  /* ── Borders ── */
+  --line:        #e7e5e4;
+  --line-2:      #ede9e4;
+
+  /* ── Accent (primary brand / interactive colour) ── */
+  --accent:      oklch(60% 0.12 150);
+  --accent-soft: oklch(94% 0.04 150);
+  --accent-ink:  oklch(38% 0.10 150);
+  --accent-fg:   #ffffff;              /* text on accent-background buttons */
+
+  /* ── Semantic: positive (income) ── */
+  --pos:         oklch(58% 0.12 150);
+  --pos-soft:    oklch(95% 0.04 150);
+
+  /* ── Semantic: negative (expense) ── */
+  --neg:         oklch(58% 0.14 28);
+  --neg-soft:    oklch(95% 0.04 28);
+
+  /* ── Warning ── */
+  --warn:        oklch(72% 0.13 75);
+  --warn-soft:   oklch(95% 0.05 75);
+
+  /* ── Chart palette ── */
+  --c-current:   oklch(70% 0.10 240);
+  --c-savings:   oklch(70% 0.10 150);
+  --c-lisa:      oklch(70% 0.12 320);
+  --c-ssisa:     oklch(70% 0.12 50);
+  --c-other:     oklch(70% 0.05 75);
+
+  /* ── Spacing ── */
+  --radius:      12px;
+  --pad:         20px;
+  /* Unified card padding tokens. Use --pad-card on standard pages; --pad-card-sm on data-dense / Insights-style pages. */
+  --pad-card:    14px 16px;
+  --pad-card-sm: 10px 12px;
+  /* Card title size — one value, no per-page override */
+  --card-h2-size: 13px;
+  --card-h2-weight: 500;
+}
+
+html[data-theme="dark"] {
+  --bg:          #0e0d0c;
+  --bg-elev:     #181715;
+  --bg-sunk:     #131210;
+  --ink:         #f5f5f4;
+  --ink-2:       #d6d3d1;
+  --ink-3:       #a8a29e;
+  --ink-4:       #78716c;
+  --line:        #2a2724;
+  --line-2:      #221f1c;
+  --accent-soft: oklch(28% 0.04 150);
+  --accent-ink:  oklch(80% 0.10 150);
+  --pos-soft:    oklch(28% 0.04 150);
+  --neg-soft:    oklch(28% 0.04 28);
+  --warn-soft:   oklch(28% 0.05 75);
+}
+html[data-density="compact"] { --pad: 14px; }
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--ink);
+  font-size: 14px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+/* When running inside Tauri the window is frameless; paint an opaque background. */
+html.tauri, body.tauri { background: var(--bg); }
+body.tauri .app {
+  background: var(--bg);
+  overflow: hidden;
+  height: 100vh;
+}
+.num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-feature-settings: "tnum","zero"; letter-spacing: -0.01em; }
+.display { font-family: "Fraunces", Georgia, serif; font-weight: 500; letter-spacing: -0.02em; }
+button, select, input { font-family: inherit; }
+
+/* ── Scrollbars: theme-aware, slim, smooth ────────────────────────────────
+   Uses WebKit pseudo-elements (Chromium / WebView2) and the standard
+   scrollbar-* properties for Firefox. Track is transparent; thumb picks up
+   the theme via CSS vars so dark mode automatically gets a dark thumb. */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+::-webkit-scrollbar              { width: 10px; height: 10px; background: transparent; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: var(--line); border-radius: 8px; border: 2px solid var(--bg); transition: background 160ms ease; }
+::-webkit-scrollbar-thumb:hover  { background: var(--ink-4); }
+::-webkit-scrollbar-thumb:active { background: var(--ink-3); }
+::-webkit-scrollbar-corner       { background: transparent; }
+/* Inside elevated surfaces (cards, modals) align the thumb's "border" colour with the surface bg */
+.card ::-webkit-scrollbar-thumb,
+.modal ::-webkit-scrollbar-thumb,
+.sidebar ::-webkit-scrollbar-thumb { border-color: var(--bg-elev); }
+

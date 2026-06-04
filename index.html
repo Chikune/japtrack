@@ -1,0 +1,1825 @@
+﻿<!doctype html>
+<html lang="en" data-theme="light" data-density="compact">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1440" />
+<title>Japtrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<meta name="theme-color" content="#1c1917" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Japtrack" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<link rel="icon" href="./icons/icon-192.png" type="image/png" />
+
+<!-- Styles -->
+<link rel="stylesheet" href="./css/variables.css" />
+<link rel="stylesheet" href="./css/layout.css" />
+<link rel="stylesheet" href="./css/components.css" />
+<link rel="stylesheet" href="./css/pages.css" />
+</head><body class="booting">
+<!-- Boot loader — covers the brief async on-disk store load so cards never flash empty -->
+<div id="boot-loader"><div class="boot-spin"></div><div class="boot-text">Loading your data…</div></div>
+<script>
+/* HARD loader cap — runs before any app script and cannot be prevented by an
+   error elsewhere. The loader is purely cosmetic; the real data render happens
+   independently, so this guarantees the app is NEVER stuck behind it. */
+(function () {
+  var clear = function () { try { document.body.classList.remove("booting"); } catch (e) {} };
+  // Reveal as soon as the document is interactive+painted, capped at 1.5s.
+  setTimeout(clear, 1500);
+  document.addEventListener("DOMContentLoaded", function () { setTimeout(clear, 400); });
+  window.addEventListener("error", clear);
+})();
+</script>
+<!-- ═══ APP LOCK ═══ opaque overlay; data is never visible behind it -->
+<div id="lock-screen" hidden>
+  <div class="lock-card">
+    <div class="lock-mark">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </div>
+    <h2>Japtrack is locked</h2>
+    <div class="lock-sub">Enter your PIN to continue</div>
+    <input id="lock-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="••••" />
+    <div class="lock-err" id="lock-err"></div>
+    <button class="btn-primary" id="lock-unlock">Unlock</button>
+    <button class="lock-forgot" id="lock-forgot">Forgot PIN?</button>
+  </div>
+</div>
+
+<div class="app" id="app">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img class="brand-mark brand-mark-img" id="brand-mark-img" src="./assets/logos/icon-dark.svg" alt="Japtrack" />
+      <div class="brand-name">Japtrack</div>
+    </div>
+    <div class="nav-section">OVERVIEW</div>
+    <button class="nav-item" aria-current="page" data-page="home" data-tooltip="Dashboard">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+      <span class="nav-label">Dashboard</span>
+    </button>
+
+    <div class="nav-section">MONEY</div>
+    <button class="nav-item" data-page="transactions" data-tooltip="Transactions">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h12l-3-3M20 17H8l3 3"/></svg></span>
+      <span class="nav-label">Transactions</span>
+    </button>
+    <button class="nav-item" data-page="scheduled" data-tooltip="Bills &amp; Subscriptions">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+      <span class="nav-label">Bills &amp; Subscriptions</span>
+    </button>
+    <button class="nav-item" data-page="accounts" data-tooltip="Accounts">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span>
+      <span class="nav-label">Accounts</span>
+    </button>
+
+    <div class="nav-section">PLANNING</div>
+    <button class="nav-item" data-page="budgets" data-tooltip="Budgets">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+      <span class="nav-label">Budgets</span>
+    </button>
+    <button class="nav-item" data-page="goals" data-tooltip="Goals">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
+      <span class="nav-label">Goals</span>
+    </button>
+    <button class="nav-item" data-page="debt" data-tooltip="Debt calculator">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg></span>
+      <span class="nav-label">Debt calculator</span>
+    </button>
+    <button class="nav-item" data-page="forecast" data-tooltip="Forecast">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+      <span class="nav-label">Forecast</span>
+    </button>
+
+    <div class="nav-section">ANALYSIS</div>
+    <button class="nav-item" data-page="insights" data-tooltip="Reports">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 5-5"/></svg></span>
+      <span class="nav-label">Reports</span>
+    </button>
+
+    <div style="flex:1"></div>
+    <div class="nav-section">MORE</div>
+    <button class="nav-item" id="settings-btn" data-tooltip="Settings">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4.8a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.5a7 7 0 0 0-2 1.2l-2.4-.8-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-.8a7 7 0 0 0 2 1.2L10 21h4l.5-2.5a7 7 0 0 0 2-1.2l2.4.8 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></span>
+      <span class="nav-label">Settings</span>
+    </button>
+    <button class="me" id="me-card" data-tooltip="Profile" type="button" title="Open profile" aria-label="Open profile">
+      <div class="me-av" id="me-av">J</div>
+      <div class="me-text">
+        <b id="me-name">James</b>
+        <span id="me-sub">Personal · GBP</span>
+      </div>
+    </button>
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+
+    <!-- Topbar -->
+    <div class="topbar" data-tauri-drag-region>
+      <button class="menu-btn" id="menu-btn" title="Menu" aria-label="Open menu">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-home-greet">
+        <span id="greeting" class="topbar-greet-txt"></span>
+        <span class="topbar-greet-date" id="dateline"></span>
+      </div>
+      <div class="crumbs">Japtrack / <b>Dashboard</b></div>
+      <div class="topbar-ins-slot"><div class="month-slot"></div></div>
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-4)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search-inp" placeholder="Search transactions, merchants, categories..." autocomplete="off" />
+        <kbd>⌘K</kbd>
+      </div>
+      <div class="topbar-bud-slot">
+        <div class="month-slot"></div>
+        <button class="btn-ghost" id="bud-copy-prev">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 9V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><rect x="3" y="9" width="12" height="12" rx="2"/></svg>
+          Copy last month
+        </button>
+      </div>
+      <div class="topbar-fc-slot">
+        <div class="month-slot fc-month-slot"></div>
+      </div>
+      <div class="topbar-sched-slot">
+        <div class="month-slot"></div>
+      </div>
+      <button class="icon-btn" id="privacy-btn" title="Toggle privacy" aria-label="Toggle privacy mode">
+        <svg id="privacy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="icon-btn" id="theme-btn" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+      <div class="top-add">
+        <button class="add-btn add-main" id="add-btn" title="Add">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          <span id="add-btn-label">Add</span>
+        </button>
+      </div>
+      <div class="fc-add-wrap" id="fc-add-wrap">
+        <button class="add-btn" id="fc-add-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Add forecast item</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="fc-add-menu" id="fc-add-menu" hidden>
+          <button data-fc-add="income">Add recurring income</button>
+          <button data-fc-add="expense">Add recurring expense</button>
+          <button data-fc-add="plan">Add payment plan</button>
+        </div>
+      </div>
+      <div class="topbar-home-period">
+        <button class="hp-nav" id="home-period-prev" title="Previous month" aria-label="Previous month"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <span class="hp-label" id="home-period-label">—</span>
+        <button class="hp-nav" id="home-period-next" title="Next month" aria-label="Next month"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="traffic-lights">
+        <button class="tl min"   id="win-min"   aria-label="Minimise" title="Minimise"></button>
+        <button class="tl max"   id="win-max"   aria-label="Maximise" title="Maximise"></button>
+        <button class="tl close" id="win-close" aria-label="Close" title="Close"></button>
+      </div>
+    </div>
+
+    <!-- Dashboard page -->
+    <div class="page active" id="page-home" data-page="home">
+
+      <!-- Top summary KPIs (Income / Spending / Net / Savings rate) -->
+      <div class="kpis" id="home-summary"></div>
+
+      <div class="home-grid">
+        <div class="home-left">
+          <div class="card" id="home-nw-proj-card">
+            <div class="card-head">
+              <div>
+                <h2 id="home-nw-proj-title">Net worth</h2>
+                <div class="sub" id="home-nw-proj-sub">Over time</div>
+              </div>
+              <div class="nw-controls">
+                <div class="seg" id="home-nw-series">
+                  <button data-series="nw" aria-pressed="true">Net worth</button><button data-series="income" aria-pressed="false">Income</button><button data-series="spending" aria-pressed="false">Spending</button>
+                </div>
+                <div class="range-pills" id="home-nw-range">
+                  <button data-range="1M" class="active">1M</button><button data-range="3M">3M</button><button data-range="6M">6M</button><button data-range="1Y">1Y</button><button data-range="ALL">ALL</button>
+                </div>
+              </div>
+            </div>
+            <div id="home-nw-proj"></div>
+          </div>
+
+          <div class="home-row2">
+            <div class="card" id="home-spend-card">
+              <div class="card-head card-head-compact">
+                <div class="ch-titlewrap">
+                  <h2 id="home-spend-title">Categorised expenses</h2>
+                  <span class="ch-sub">This month</span>
+                </div>
+              </div>
+              <div class="catbars" id="home-cats" style="grid-template-columns:1fr;gap:8px"></div>
+              <div class="card-foot-link"><button class="more" onclick="switchPage('insights')">View all categories →</button></div>
+            </div>
+            <div class="card" id="home-accounts-card">
+              <div class="card-head card-head-compact">
+                <div class="ch-titlewrap">
+                  <h2>Accounts overview</h2>
+                  <span class="ch-sub">Total balance</span>
+                </div>
+              </div>
+              <div id="home-accounts"></div>
+              <div class="card-foot-link"><button class="more" onclick="switchPage('accounts')">View all accounts →</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-right">
+          <div class="card" id="home-upcoming-card">
+            <div class="card-head card-head-compact">
+              <h2>Next up</h2>
+              <span class="ch-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+            </div>
+            <div id="home-upcoming-list"></div>
+            <div id="home-upcoming-total"></div>
+          </div>
+          <div class="card" id="home-thismonth-card">
+            <div class="card-head card-head-compact"><h2>This month</h2></div>
+            <div id="home-thismonth"></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /dashboard-page -->
+
+    <div class="page" id="page-insights" data-page="insights">
+      <div class="page-head ins-page-head">
+        <div>
+          <h1>Reports</h1>
+          <div class="sub">Track your spending, income and financial trends</div>
+        </div>
+      </div>
+      <!-- Month-scoped KPI strip — month picker now lives in the topbar; tiles update in place.
+           Each tile: text block (label / value / delta) on the left, a visual on the right. -->
+      <div class="ins-kpis">
+        <div class="ins-kpi">
+          <div class="ik-text">
+            <span class="lab">Total spend</span>
+            <span class="val neg blur" id="ins-kpi-spend">—</span>
+            <span class="delta" id="ins-kpi-spend-d"></span>
+          </div>
+          <div class="ik-viz ik-spark" id="ins-kpi-spend-spark"></div>
+        </div>
+        <div class="ins-kpi">
+          <div class="ik-text">
+            <span class="lab">Top riser</span>
+            <span class="val ik-cat" id="ins-kpi-riser">—</span>
+            <span class="delta" id="ins-kpi-riser-d"></span>
+          </div>
+          <div class="ik-viz" id="ins-kpi-riser-ic"></div>
+        </div>
+        <div class="ins-kpi">
+          <div class="ik-text">
+            <span class="lab">Largest category</span>
+            <span class="val ik-cat" id="ins-kpi-largest">—</span>
+            <span class="delta" id="ins-kpi-largest-d"></span>
+          </div>
+          <div class="ik-viz ik-ring" id="ins-kpi-largest-ring"></div>
+        </div>
+        <div class="ins-kpi">
+          <div class="ik-text">
+            <span class="lab">Budget pace</span>
+            <span class="val" id="ins-kpi-pace">—</span>
+            <span class="delta" id="ins-kpi-pace-d"></span>
+          </div>
+          <div class="ik-viz ik-ring" id="ins-kpi-pace-ring"></div>
+        </div>
+      </div>
+      <div class="grid rep-grid">
+        <div class="rep-main-row">
+          <div class="card" id="rep-trends-card">
+            <div class="card-head card-head-compact">
+              <div class="ch-titlewrap">
+                <h2>Category trends</h2>
+                <span class="ch-sub">Monthly spend · top categories</span>
+              </div>
+            </div>
+            <div id="rep-trends"></div>
+          </div>
+
+          <div class="rep-side">
+            <div class="card" id="rep-insights-card">
+              <div class="card-head card-head-compact">
+                <h2>Insights</h2>
+              </div>
+              <div id="rep-insights-list"></div>
+            </div>
+
+            <div class="card" id="home-bud-card">
+              <div class="card-head card-head-compact">
+                <h2 id="home-bud-title">Budgets</h2>
+                <button class="more" onclick="switchPage('budgets')">Edit →</button>
+              </div>
+              <div class="bud-mini" id="home-bud-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rep-bottom-row">
+          <div class="card" id="home-topspend-card">
+            <div class="card-head card-head-compact">
+              <div class="ch-titlewrap">
+                <h2>Top spend</h2>
+                <div class="ch-tabs" id="home-topspend-tabs">
+                  <button data-tab="items" class="active">Items</button>
+                  <button data-tab="merchants">Merchants</button>
+                  <button data-tab="accounts">Accounts</button>
+                </div>
+              </div>
+              <button class="more" onclick="switchPage('expenses')">All →</button>
+            </div>
+            <div id="home-topspend-body"></div>
+          </div>
+
+          <div class="card" id="home-recent-card">
+            <div class="card-head card-head-compact">
+              <h2 id="home-recent-title">Recent</h2>
+              <button class="more" onclick="switchPage('expenses')">All →</button>
+            </div>
+            <div class="recent-tx-list" id="home-recent-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-tx" data-page="tx">
+      <div class="page-head tx-head">
+        <div>
+          <h1 id="tx-page-title">Transactions</h1>
+          <div class="sub">Review, manage and import your transactions</div>
+          <div class="sub tx-count-sub" id="tx-all-sub">No transactions yet</div>
+        </div>
+      </div>
+
+      <div class="tx-toolbar">
+        <nav class="tx-seg-group tx-section-tabs" id="tx-section-tabs" aria-label="View">
+          <button data-tx-section="transactions" class="active">Transactions</button>
+          <button data-tx-section="imports">Imports &amp; Rules</button>
+        </nav>
+      </div>
+
+      <section id="tx-section-transactions">
+
+        <div class="tx-controls">
+          <div class="tx-filter-wrap">
+            <button class="filter-btn tx-filter-toggle" id="tx-filter-btn" aria-expanded="false">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+              Filters <span class="badge muted" id="tx-filter-badge">All</span>
+            </button>
+            <div class="tx-filter-panel" id="tx-filter-panel" hidden>
+              <div class="tx-filter-grid">
+                <div class="tx-filter-wide">
+                  <h4>Type</h4>
+                  <nav class="tx-seg-group tx-type-tabs" id="tx-type-tabs" aria-label="Transaction type">
+                    <button data-tx-tab="transactions" class="active">All</button>
+                    <button data-tx-tab="expenses">Expenses</button>
+                    <button data-tx-tab="income">Income</button>
+                    <button data-tx-tab="transfers">Transfers</button>
+                  </nav>
+                  <h4 class="tx-filter-h4-gap">Period</h4>
+                  <nav class="tx-seg-group tx-range-seg" id="tx-all-range" aria-label="Time range">
+                    <button aria-pressed="true" data-range="this">This month</button>
+                    <button data-range="3M">3M</button>
+                    <button data-range="6M">6M</button>
+                    <button data-range="1Y">1Y</button>
+                    <button data-range="all">All time</button>
+                  </nav>
+                </div>
+              <div>
+                <h4>Accounts</h4>
+                <div class="tx-check-list" id="tx-filter-accounts"></div>
+              </div>
+              <div>
+                <h4>Categories</h4>
+                <div class="tx-check-list" id="tx-filter-categories"></div>
+              </div>
+              <div>
+                <h4>Amount range</h4>
+                <div class="tx-filter-duo">
+                  <input id="tx-amount-min" type="number" min="0" step="0.01" placeholder="Min">
+                  <input id="tx-amount-max" type="number" min="0" step="0.01" placeholder="Max">
+                </div>
+                <h4>Date range</h4>
+                <div class="tx-filter-duo">
+                  <input id="tx-date-from" type="date">
+                  <input id="tx-date-to" type="date">
+                </div>
+              </div>
+            </div>
+            <div class="tx-filter-foot">
+              <button class="btn-ghost" id="tx-filter-clear">Clear filters</button>
+              <button class="btn-primary" id="tx-filter-done">Done</button>
+            </div>
+          </div><!-- /tx-filter-panel -->
+          </div><!-- /tx-filter-wrap -->
+          <div class="tx-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-4)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="tx-all-search" placeholder="Search merchant, category, account, notes..." autocomplete="off" />
+          </div>
+        </div><!-- /tx-controls -->
+        <div class="active-chips" id="tx-active-chips"></div>
+
+        <div class="card tx-table-card">
+          <table class="tx-table-full">
+            <thead><tr>
+              <th class="tx-check-col"><input type="checkbox" id="tx-all-check" aria-label="Select all transactions on this page" onchange="toggleTxAllSelected(this.checked)"></th>
+              <th class="sortable" data-sort="merchant">Merchant</th>
+              <th>Category</th>
+              <th>Account</th>
+              <th class="sortable" data-sort="date">Date</th>
+              <th class="sortable" data-sort="amount" style="text-align:right">Amount</th>
+              <th style="width:138px">
+                <select class="bucket-sel tx-table-sort" id="tx-all-sort" aria-label="Sort transactions">
+                  <option value="date-desc">Newest first</option>
+                  <option value="date-asc">Oldest first</option>
+                  <option value="amount-desc">Highest first</option>
+                  <option value="amount-asc">Lowest first</option>
+                  <option value="merchant">Merchant A to Z</option>
+                </select>
+              </th>
+            </tr></thead>
+            <tbody id="tx-all-tbody"></tbody>
+          </table>
+          <div class="pager" id="tx-all-pager"></div>
+        </div>
+      </section>
+
+      <section id="tx-section-imports" hidden>
+        <div class="tx-import-layout">
+          <div class="card tx-import-hero">
+            <div>
+              <h2>Import bank statement</h2>
+              <p>Import a bank statement and auto-categorise transactions using merchant recognition.</p>
+              <div class="tx-supported">CSV · XLS/HTML · Generic bank CSV</div>
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" id="set-import-bank">Upload statement</button>
+              <input type="file" id="set-import-bank-file" accept=".xls,.html,.htm,.csv" style="display:none">
+            </div>
+          </div>
+
+          <div class="card tx-smart-card">
+            <h2>Smart Recognition</h2>
+            <div class="smart-example">
+              <span>Raw</span><b>TESCO STORE 4474</b>
+              <span>Result</span><b>Recognised as Tesco</b>
+              <span>Category</span><b>Groceries · 98% confidence</b>
+            </div>
+            <p>Previously recognised merchants auto-fill category, merchant name, transfer account and transaction type during import.</p>
+          </div>
+
+          <div class="card tx-rules-card">
+            <div class="card-head">
+              <div>
+                <h2>Merchant Rules</h2>
+                <div class="sub">Saved recognition patterns for future imports</div>
+              </div>
+              <div class="btn-row">
+                <button class="btn-ghost" id="rules-add">Add rule</button>
+                <button class="btn-ghost" id="rules-export">Export</button>
+                <button class="btn-ghost" id="rules-import">Import</button>
+                <input type="file" id="rules-import-file" accept=".json" style="display:none">
+              </div>
+            </div>
+            <div id="rules-list" class="rules-list"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="page" id="page-budgets" data-page="budgets">
+      <div class="page-head bud-page-head">
+        <div>
+          <h1>Budgets</h1>
+          <div class="sub" id="bud-sub">Plan, track and manage your spending</div>
+        </div>
+      </div>
+
+      <div class="bud-kpi-grid" id="bud-kpis"></div>
+
+      <div class="bud-page-grid">
+        <div class="bud-main-stack">
+          <div class="card bud-list-card">
+            <div class="bud-section-head">
+              <div>
+                <h2>Your budgets</h2>
+              </div>
+              <div class="bud-list-tools">
+                <select id="bud-sort" class="bucket-sel" aria-label="Sort budgets">
+                  <option value="priority">Priority</option>
+                  <option value="category">Category</option>
+                  <option value="spent">Highest spent</option>
+                </select>
+              </div>
+            </div>
+            <div class="bud-status-tabs" id="bud-status-tabs">
+              <button data-bud-filter="all" class="active">All</button>
+              <button data-bud-filter="track">On track</button>
+              <button data-bud-filter="watch">Watch</button>
+              <button data-bud-filter="over">Over budget</button>
+            </div>
+            <div class="bud-list-head">
+              <span>Category</span><span>Budget</span><span>Spent</span><span>Remaining</span><span>Progress</span><span>Status</span><span></span>
+            </div>
+            <div id="bud-grid"></div>
+            <div class="bud-card-foot" id="bud-list-foot">
+              <span id="bud-row-count"></span>
+              <button class="btn-ghost bud-view-toggle" id="bud-view-toggle" hidden>View all budgets</button>
+            </div>
+          </div>
+
+          <div class="card" id="unbud-card" style="display:none">
+            <div class="bud-section-head">
+              <div>
+                <h2>Missing budgets</h2>
+                <span>Spending detected in categories without a budget.</span>
+              </div>
+            </div>
+            <div class="unbud-list" id="unbud-list"></div>
+          </div>
+        </div>
+
+        <aside class="card bud-detail-panel" id="bud-detail-panel">
+          <div class="bud-detail-empty">Select a budget to review pacing, recent transactions, and edit options.</div>
+        </aside>
+      </div>
+
+      <!-- Budget allocation planner (moved here from Forecast) -->
+      <div class="card" id="fc-alloc-card" style="margin-top:14px">
+        <div class="card-head">
+          <div>
+            <h2>Budget allocation plan</h2>
+            <div class="sub" id="fc-alloc-sub">Decide where each pound of your income should go — visualise your target split.</div>
+          </div>
+          <button class="btn-ghost-sm" id="fc-alloc-add" style="display:none">+ Add slice</button>
+        </div>
+        <div class="bp-layout">
+          <div id="fc-alloc-donut" class="bp-donut"></div>
+          <div id="fc-alloc-rows" class="bp-rows"></div>
+        </div>
+        <div id="fc-alloc-summary" class="bp-summary"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-scheduled" data-page="scheduled">
+      <div class="page-head">
+        <div><h1>Bills &amp; Subscriptions</h1><div class="sub" id="sched-sub">No recurring items</div></div>
+      </div>
+
+      <div class="page-stat-bar">
+        <div class="pstat-title"><span id="sched-cal-month"></span></div>
+        <div class="pstat-item"><span class="pstat-lab">In</span><span class="num blur pstat-val pos" id="sched-sum-in">£0</span></div>
+        <div class="pstat-item"><span class="pstat-lab">Out</span><span class="num blur pstat-val neg" id="sched-sum-out">£0</span></div>
+        <div class="pstat-item"><span class="pstat-lab">Net</span><span class="num blur pstat-val" id="sched-sum-net">£0</span></div>
+        <div class="pstat-item push"><span class="pstat-lab">Next due</span><span class="pstat-val muted" id="sched-sum-next">—</span></div>
+      </div>
+
+      <div class="sched-body">
+        <div id="sched-sections" class="sched-body-main"></div>
+        <aside class="sched-panel" id="sched-panel"></aside>
+      </div>
+    </div>
+
+    <div class="page" id="page-accounts" data-page="accounts">
+      <div class="page-head acc-page-head">
+        <div>
+          <h1>Accounts</h1>
+          <div class="sub">See all your accounts and their current balances.</div>
+        </div>
+      </div>
+
+      <!-- Tab: Accounts -->
+      <div class="acc-tab-panel" id="acc-tab-accounts">
+        <div class="acc-body">
+          <div class="acc-body-main">
+            <div class="acc-kpi-grid">
+              <div class="acc-kpi-card">
+                <div class="acc-kpi-copy">
+                  <span>Total balance</span>
+                  <strong class="num blur" id="acc-total">—</strong>
+                  <small>All accounts</small>
+                </div>
+                <span class="acc-kpi-ic pos" id="acc-ic-total">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19"/><path d="M16 14.5h3"/></svg>
+                </span>
+              </div>
+              <div class="acc-kpi-card">
+                <div class="acc-kpi-copy">
+                  <span>This month</span>
+                  <strong class="num blur" id="acc-delta">—</strong>
+                  <small>vs last month</small>
+                </div>
+                <span class="acc-kpi-ic" id="acc-ic-delta">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 7 9 13 13 9 21 17"/><polyline points="21 12 21 17 16 17"/></svg>
+                </span>
+              </div>
+              <div class="acc-kpi-card acc-kpi-mover">
+                <div class="acc-kpi-copy">
+                  <span>Largest change</span>
+                  <strong id="acc-mover-name">No movement yet</strong>
+                  <small class="num blur" id="acc-mover">—</small>
+                </div>
+                <span class="acc-kpi-ic" id="acc-ic-mover">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="card acc-list-card">
+              <div class="acc-list-head">
+                <div>
+                  <h2>Accounts</h2>
+                  <div id="acc-list-sub">Snapshot balances</div>
+                </div>
+              </div>
+              <div class="acc-table-head">
+                <span>Account</span>
+                <span>Balance</span>
+                <span>This month</span>
+                <span>Trend (30d)</span>
+                <span>Status</span>
+                <span></span>
+              </div>
+              <div id="acc-list" class="acc-list-tab"></div>
+            </div>
+            <div class="acc-footnote">
+              <span>i</span>
+              Balances are updated when you add or edit a snapshot. Change is compared to your previous snapshot.
+            </div>
+            <div class="acc-snap-bar" id="acc-snap-bar"></div>
+          </div>
+          <div class="acc-panel" id="acc-panel"></div>
+        </div>
+      </div>
+
+      <!-- Tab: Net worth -->
+      <div class="acc-tab-panel" id="acc-tab-networth" style="display:none">
+        <div class="page-stat-bar">
+          <div class="pstat-item"><span class="pstat-lab">Net worth</span><span class="num blur pstat-val" id="nw-amount" style="font-size:16px">—</span></div>
+          <div id="nw-delta" class="hero-delta" style="margin:0"></div>
+          <div class="pstat-item push"><span class="pstat-lab">Best month</span><span class="num blur pstat-val muted" id="nw-best">—</span></div>
+          <div class="pstat-item"><span class="pstat-lab">Snapshots</span><span class="pstat-val muted num" id="nw-count">0</span></div>
+        </div>
+
+        <div class="grid">
+          <div class="card col-4">
+            <div class="card-head"><h2>Allocation today</h2></div>
+            <div style="display:flex;gap:14px;align-items:center;flex-direction:column">
+              <div id="nw-donut"></div>
+              <div style="width:100%" id="nw-legend"></div>
+            </div>
+          </div>
+
+          <div class="card col-8" style="padding:0">
+            <div class="card-head" style="padding:14px 18px 10px;margin:0;border-bottom:1px solid var(--line-2)">
+              <h2>All snapshots</h2>
+              <span class="card-hint">click any row to edit</span>
+            </div>
+            <table class="nw-table">
+              <thead><tr><th style="padding-left:18px">Month</th><th>Total</th><th>Δ vs prior</th><th>Breakdown</th><th style="text-align:right;padding-right:18px">Actions</th></tr></thead>
+              <tbody id="nw-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <nav class="acc-tabs" id="acc-tabs" aria-label="Accounts page tabs">
+        <button data-acc-tab="accounts" class="active">Accounts</button>
+        <button data-acc-tab="networth">Net worth</button>
+      </nav>
+
+    </div>
+
+    <div class="page" id="page-goals" data-page="goals">
+      <div class="page-head">
+        <div><h1>Goals</h1><div class="sub" id="goals-sub">Track savings targets and budget multi-expense projects</div></div>
+      </div>
+
+      <section class="goals-section">
+        <div class="goals-section-head">
+          <div><h2>Savings goals</h2><span class="goals-section-sub" id="goals-sub-count"></span></div>
+          <button class="btn-ghost-sm goals-section-add" id="goals-add-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Add goal
+          </button>
+        </div>
+        <div class="goal-grid" id="goals-grid"></div>
+      </section>
+
+      <section class="goals-section">
+        <div class="goals-section-head">
+          <div><h2>Projects</h2><span class="goals-section-sub" id="proj-sub-count"></span></div>
+          <button class="btn-ghost-sm goals-section-add" id="proj-add-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Add project
+          </button>
+        </div>
+        <div id="proj-grid"></div>
+      </section>
+    </div>
+
+    <!-- ══ DEBT PAYOFF PAGE ══ -->
+    <div class="page" id="page-debt" data-page="debt">
+      <div class="page-head debt-page-head">
+        <div><h1>Debt payoff</h1><div class="sub">Plan your route to debt-free with the snowball or avalanche method</div></div>
+      </div>
+
+      <!-- Strategy + extra-payment controls -->
+      <section class="debt-controls" id="debt-controls">
+        <div class="debt-ctrl-group">
+          <label class="debt-ctrl-label">Strategy</label>
+          <div class="seg-row" id="debt-strategy-seg">
+            <button data-strategy="avalanche" aria-pressed="true" title="Pay highest interest rate first — saves the most money">Avalanche</button>
+            <button data-strategy="snowball" title="Pay smallest balance first — quickest wins for motivation">Snowball</button>
+          </div>
+        </div>
+        <div class="debt-ctrl-group">
+          <label class="debt-ctrl-label" for="debt-extra">Extra monthly payment (£)</label>
+          <input id="debt-extra" type="number" min="0" step="10" placeholder="0" class="debt-extra-inp" />
+        </div>
+        <div class="debt-ctrl-hint" id="debt-strategy-hint"></div>
+      </section>
+
+      <!-- Summary KPIs -->
+      <section class="debt-kpis" id="debt-kpis"></section>
+
+      <!-- Payoff projection chart -->
+      <section class="debt-section" id="debt-chart-section" hidden>
+        <div class="debt-section-head"><h2>Payoff projection</h2><span class="debt-section-sub" id="debt-chart-sub"></span></div>
+        <div class="card debt-chart-card" id="debt-chart"></div>
+      </section>
+
+      <!-- Debt list -->
+      <section class="debt-section">
+        <div class="debt-section-head"><h2>Your debts</h2><span class="debt-section-sub" id="debt-list-sub"></span></div>
+        <div class="debt-list" id="debt-list"></div>
+      </section>
+
+      <!-- Payoff schedule / order -->
+      <section class="debt-section" id="debt-plan-section" hidden>
+        <div class="debt-section-head"><h2>Payoff plan</h2><span class="debt-section-sub" id="debt-plan-sub"></span></div>
+        <div class="debt-plan" id="debt-plan"></div>
+      </section>
+    </div>
+
+    <!-- ══ FORECAST PAGE ══ -->
+    <div class="page" id="page-forecast" data-page="forecast">
+      <div class="page-head fc-page-head">
+        <div>
+          <h1>Forecast</h1>
+          <div class="sub" id="fc-sub">See your financial future and plan ahead</div>
+        </div>
+      </div>
+
+      <div class="fc-kpis" id="fc-kpis"></div>
+      <div class="fc-outlook-strip" id="fc-outlook"></div>
+
+      <div class="fc-outer">
+        <!-- Left main column: chart + items/scenarios -->
+        <div class="fc-main-col">
+          <section class="card fc-chart-card" id="fc-balance-card">
+            <div class="fc-section-head">
+              <div>
+                <h2>Balance projection</h2>
+                <p>Projected account balance over time</p>
+              </div>
+              <div class="fc-account-seg" id="fc-balance-acct" aria-label="Projection account"></div>
+            </div>
+            <div class="fc-chart-wrap" id="fc-balance-grid"></div>
+            <div class="fc-chart-legend">
+              <span><i class="pos"></i>Positive balance</span>
+              <span><i class="warn"></i>Low balance</span>
+              <span><i class="neg"></i>Negative balance</span>
+            </div>
+          </section>
+
+          <div class="fc-lower-left">
+            <section class="card fc-items-card">
+              <div class="fc-section-head">
+                <div>
+                  <h2>Forecast items</h2>
+                  <p id="fc-item-count"></p>
+                </div>
+                <div class="fc-items-head-actions">
+                  <button class="fc-group-btn" id="fc-group-btn" type="button">Group by: <b>Type</b> <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>
+                  <button class="btn-ghost" id="fc-manage-items" type="button">Manage items</button>
+                </div>
+              </div>
+              <div id="fc-tbody" class="fc-item-groups"></div>
+              <div class="fc-card-foot">
+                <button class="fc-foot-link" id="fc-view-all-items" type="button">View all forecast items <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+              </div>
+            </section>
+
+            <section class="card fc-scenario-card">
+              <div class="fc-section-head">
+                <div><h2>Scenario planning</h2></div>
+                <button class="fc-link" id="fc-custom-scenario" type="button">What if?</button>
+              </div>
+              <div id="fc-scenarios"></div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Right sidebar: insights + payment plans -->
+        <div class="fc-right-col">
+          <aside class="card fc-insights-card">
+            <div class="fc-section-head">
+              <div><h2>Forecast insights</h2></div>
+            </div>
+            <div id="fc-insights"></div>
+            <div class="fc-card-foot">
+              <button class="fc-foot-link" type="button">View all insights <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+            </div>
+          </aside>
+
+          <section class="card fc-plan-card">
+            <div class="fc-section-head">
+              <div><h2>Payment plans</h2></div>
+              <button class="fc-link" type="button" onclick="renderPlans()">View all</button>
+            </div>
+            <div class="plan-grid" id="plan-grid"></div>
+            <div class="fc-card-foot">
+              <button class="fc-foot-add-btn" id="plan-add-btn" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Add payment plan
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <label class="fc-hidden-control"><input type="checkbox" id="fc-include-sched" checked> Include scheduled</label>
+      <div class="seg fc-hidden-control" id="fc-months-seg">
+        <button data-months="3">3M</button>
+        <button data-months="6">6M</button>
+        <button aria-pressed="true" data-months="12">12M</button>
+        <button data-months="24">24M</button>
+        <button data-months="36">36M</button>
+      </div>
+      <button id="fc-alloc-add" class="fc-hidden-control" type="button"></button>
+      <div id="fc-chart" class="fc-hidden-control"></div>
+      <div id="fc-balance-row" class="fc-hidden-control"></div>
+
+    </div>
+
+    <div class="page" id="page-settings" data-page="settings">
+      <div class="page-head"><div><h1>Settings</h1></div></div>
+
+      <!-- Sticky section nav — click to jump, highlights as you scroll -->
+      <nav class="settings-tabs" id="settings-tabs">
+        <button data-target="sec-appearance" class="active">Appearance</button>
+        <button data-target="sec-buckets">Net worth buckets</button>
+        <button data-target="sec-categories">Categories</button>
+        <button data-target="sec-accounts">Accounts</button>
+        <button data-target="sec-data">Import &amp; Export</button>
+        <button data-target="sec-about">About</button>
+      </nav>
+
+      <div class="card set-section" id="sec-appearance" style="margin-bottom:18px">
+        <h2>Appearance</h2>
+        <div class="desc">Theme and layout density</div>
+        <div class="set-row">
+          <div class="lab">Theme</div>
+          <div class="seg" id="set-theme-seg">
+            <button data-theme="light">Light</button>
+            <button data-theme="dark">Dark</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">Currency<small>symbol &amp; number formatting</small></div>
+          <select id="set-currency" class="set-select" style="min-width:220px">
+            <option value="GBP">£ GBP — British Pound</option>
+            <option value="USD">$ USD — US Dollar</option>
+            <option value="EUR">€ EUR — Euro</option>
+            <option value="CAD">$ CAD — Canadian Dollar</option>
+            <option value="AUD">$ AUD — Australian Dollar</option>
+            <option value="JPY">¥ JPY — Japanese Yen</option>
+            <option value="INR">₹ INR — Indian Rupee</option>
+          </select>
+        </div>
+        <div class="set-row">
+          <div class="lab">Date format<small>how dates display</small></div>
+          <select id="set-datefmt" class="set-select" style="min-width:200px">
+            <option value="DMY">31 Dec 2026 (D M Y)</option>
+            <option value="MDY">Dec 31, 2026 (M D Y)</option>
+            <option value="ISO">2026-12-31 (ISO)</option>
+          </select>
+        </div>
+        <div class="set-row">
+          <div class="lab">Week starts<small>calendar layout</small></div>
+          <div class="seg" id="set-weekstart-seg">
+            <button data-ws="1">Monday</button>
+            <button data-ws="0">Sunday</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">App lock<small id="set-pin-state">PIN not set</small></div>
+          <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+            <button class="btn-primary" id="set-pin-set">Set PIN</button>
+            <button class="btn-ghost" id="set-pin-remove" style="display:none">Remove PIN</button>
+          </div>
+        </div>
+        <div class="set-row" id="set-autolock-row" style="display:none">
+          <div class="lab">Auto-lock<small>lock after inactivity</small></div>
+          <select id="set-autolock" class="set-select" style="min-width:160px">
+            <option value="0">Off</option>
+            <option value="1">After 1 minute</option>
+            <option value="5">After 5 minutes</option>
+            <option value="15">After 15 minutes</option>
+            <option value="30">After 30 minutes</option>
+          </select>
+        </div>
+        <div class="set-row">
+          <div class="lab">Accent colour<small>highlights, chips, selection</small></div>
+          <div class="color-inp-row">
+            <input type="color" id="set-accent" class="color-swatch-inp" value="#7fb069" />
+            <div class="accent-presets" id="set-accent-presets">
+              <button data-color="#7fb069" title="Green" style="background:#7fb069"></button>
+              <button data-color="#5b8def" title="Blue"  style="background:#5b8def"></button>
+              <button data-color="#9c6ade" title="Purple" style="background:#9c6ade"></button>
+              <button data-color="#f0a36c" title="Orange" style="background:#f0a36c"></button>
+              <button data-color="#e85a78" title="Pink" style="background:#e85a78"></button>
+              <button data-color="#e3a72f" title="Amber" style="background:#e3a72f"></button>
+              <button data-color="#3aa6a0" title="Teal" style="background:#3aa6a0"></button>
+            </div>
+            <button class="btn-ghost-sm" id="set-accent-reset">Reset</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">Income colour<small>positive amounts &amp; income bars</small></div>
+          <div class="color-inp-row">
+            <input type="color" id="set-pos" class="color-swatch-inp" value="#6aaa64" />
+            <div class="accent-presets" id="set-pos-presets">
+              <button data-color="#6aaa64" title="Green"  style="background:#6aaa64"></button>
+              <button data-color="#3aa6a0" title="Teal"   style="background:#3aa6a0"></button>
+              <button data-color="#5b8def" title="Blue"   style="background:#5b8def"></button>
+              <button data-color="#9c6ade" title="Purple" style="background:#9c6ade"></button>
+            </div>
+            <button class="btn-ghost-sm" id="set-pos-reset">Reset</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">Expense colour<small>negative amounts &amp; spending bars</small></div>
+          <div class="color-inp-row">
+            <input type="color" id="set-neg" class="color-swatch-inp" value="#e85a78" />
+            <div class="accent-presets" id="set-neg-presets">
+              <button data-color="#e85a78" title="Pink"   style="background:#e85a78"></button>
+              <button data-color="#e3a72f" title="Amber"  style="background:#e3a72f"></button>
+              <button data-color="#f0a36c" title="Orange" style="background:#f0a36c"></button>
+              <button data-color="#9c6ade" title="Purple" style="background:#9c6ade"></button>
+            </div>
+            <button class="btn-ghost-sm" id="set-neg-reset">Reset</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">Corner radius<small>cards, buttons, inputs</small></div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <input type="range" id="set-radius" min="0" max="24" step="1" value="12" style="width:160px;accent-color:var(--accent)" />
+            <span id="set-radius-val" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-3);min-width:36px">12px</span>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">App icon<small>brand mark in the sidebar</small></div>
+          <div id="set-icon-variant" class="icon-variant-picker">
+            <button type="button" data-variant="auto"  aria-label="Auto" title="Auto — follows theme"><span class="iv-thumb iv-auto"></span><span>Auto</span></button>
+            <button type="button" data-variant="dark"  aria-label="Dark"  title="Dark (walnut)"><img src="./assets/logos/icon-dark.svg"  alt=""><span>Dark</span></button>
+            <button type="button" data-variant="light" aria-label="Light" title="Light (cream)"><img src="./assets/logos/icon-light.svg" alt=""><span>Light</span></button>
+            <button type="button" data-variant="amber" aria-label="Amber" title="Amber"><img src="./assets/logos/icon-amber.svg" alt=""><span>Amber</span></button>
+          </div>
+        </div>
+        <!-- Density toggle disabled — we're standardising on Compact while the layout settles. -->
+        <div class="set-row" style="display:none">
+          <div class="lab">Density<small>row spacing in tables &amp; cards</small></div>
+          <div class="seg" id="set-density-seg">
+            <button data-density="comfy">Comfy</button>
+            <button data-density="compact">Compact</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">Stats start<small>dashboard summary cards count from this month → today</small></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input type="month" id="set-stats-start" />
+            <button class="btn-ghost-sm" id="set-stats-start-reset">Reset</button>
+            <span id="set-stats-start-hint" style="font-size:11.5px;color:var(--ink-4)"></span>
+          </div>
+        </div>
+        <div class="set-savebar" id="set-appr-savebar">
+          <span id="set-appr-status">All changes saved</span>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn-ghost" id="set-appr-discard" disabled>Discard</button>
+            <button class="btn-primary" id="set-appr-save" disabled>Save changes</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card set-section" id="sec-buckets" style="margin-bottom:18px">
+        <h2>Net worth buckets</h2>
+        <div class="desc">Categories used in net-worth snapshots (Current Account, Savings, ISA, etc.). Edit a name or colour inline; the trash icon removes a bucket.</div>
+        <div id="set-nw-list" style="margin-top:14px"></div>
+        <div class="set-add-row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line-2)">
+          <input type="text" id="set-nw-new-name" placeholder="New bucket name (e.g. Crypto)" class="set-input" style="width:220px" />
+          <input type="color" id="set-nw-new-color" class="color-swatch-inp" value="#7fb069" />
+          <button class="btn-primary" id="set-nw-add">Add bucket</button>
+          <button class="btn-ghost" id="set-nw-reset">Restore defaults</button>
+        </div>
+      </div>
+
+      <div class="card set-section" id="sec-categories" style="margin-bottom:18px">
+        <h2>Categories</h2>
+        <div class="desc">Manage which expense and income categories appear</div>
+        <div id="audit-banner-slot"></div>
+        <div class="set-row" style="grid-template-columns:220px 1fr">
+          <div class="lab">Type</div>
+          <div class="seg" id="set-cat-type">
+            <button aria-pressed="true" data-type="exp">Expense</button>
+            <button data-type="inc">Income</button>
+          </div>
+        </div>
+        <div class="cat-mgr" id="set-cat-list"></div>
+      </div>
+
+      <div class="card set-section" id="sec-accounts" style="margin-bottom:18px">
+        <h2>Accounts</h2>
+        <div class="desc">Bank accounts used for transactions</div>
+        <div id="set-acct-list" style="margin-top:12px"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <input type="text" id="set-acct-new" placeholder="Add new account..." class="set-input" style="max-width:260px" />
+          <button class="btn-primary" id="set-acct-add">Add</button>
+        </div>
+      </div>
+
+      <div class="card set-section" id="sec-data" style="margin-bottom:18px">
+        <h2>Import &amp; Export</h2>
+        <div class="desc">Download, backup or restore each section independently</div>
+
+        <!-- Transactions -->
+        <div class="set-row">
+          <div class="lab">Transactions<small>CSV export / import</small></div>
+          <div style="flex:1;min-width:0">
+            <div class="btn-row" style="margin-bottom:6px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12.5px">
+                <input type="checkbox" id="exp-all" checked style="width:14px;height:14px;accent-color:var(--ink)"> All time
+              </label>
+            </div>
+            <div class="export-controls" id="exp-range-wrap" style="opacity:0.5;pointer-events:none">
+              <label>From <input type="month" id="exp-from"></label>
+              <label>To <input type="month" id="exp-to"></label>
+            </div>
+            <div class="btn-row" style="margin-top:8px;flex-wrap:wrap;gap:6px">
+              <button class="btn-primary" id="set-export">Export CSV</button>
+              <button class="btn-ghost" id="set-export-tmpl">Download template</button>
+              <button class="btn-ghost" id="set-import">Import CSV / JSON…</button>
+              <button class="btn-danger-ghost" id="set-reset-txns" title="Delete all transactions">Reset</button>
+              <input type="file" id="set-import-file" accept=".json,application/json,.csv,text/csv" style="display:none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Accounts -->
+        <div class="set-row">
+          <div class="lab">Accounts<small>JSON · list of account names</small></div>
+          <div class="btn-row">
+            <button class="btn-ghost" id="set-export-accounts">Export</button>
+            <button class="btn-ghost" id="set-import-accounts">Import…</button>
+            <button class="btn-danger-ghost" id="set-reset-accounts" title="Remove all accounts">Reset</button>
+            <input type="file" id="set-import-accounts-file" accept=".json" style="display:none">
+          </div>
+        </div>
+
+        <!-- Budgets -->
+        <div class="set-row">
+          <div class="lab">Budgets<small>JSON</small></div>
+          <div class="btn-row">
+            <button class="btn-ghost" id="set-export-budgets">Export</button>
+            <button class="btn-ghost" id="set-import-budgets">Import…</button>
+            <button class="btn-danger-ghost" id="set-reset-budgets" title="Delete all budgets">Reset</button>
+            <input type="file" id="set-import-budgets-file" accept=".json" style="display:none">
+          </div>
+        </div>
+
+        <!-- Net worth snapshots -->
+        <div class="set-row">
+          <div class="lab">Snapshots<small>CSV or JSON</small></div>
+          <div class="btn-row">
+            <button class="btn-ghost" id="set-export-nw-csv">Export CSV</button>
+            <button class="btn-ghost" id="set-export-nw-json">Export JSON</button>
+            <button class="btn-ghost" id="set-import-nw">Import…</button>
+            <button class="btn-danger-ghost" id="set-reset-nw" title="Delete all snapshots">Reset</button>
+            <input type="file" id="set-import-nw-file" accept=".json,.csv" style="display:none">
+          </div>
+        </div>
+
+        <!-- Scheduled -->
+        <div class="set-row">
+          <div class="lab">Bills &amp; Subscriptions<small>JSON</small></div>
+          <div class="btn-row">
+            <button class="btn-ghost" id="set-export-sched">Export</button>
+            <button class="btn-ghost" id="set-import-sched">Import…</button>
+            <button class="btn-danger-ghost" id="set-reset-sched" title="Delete all bills / subscriptions">Reset</button>
+            <input type="file" id="set-import-sched-file" accept=".json" style="display:none">
+          </div>
+        </div>
+
+        <!-- Goals -->
+        <div class="set-row">
+          <div class="lab">Goals<small>JSON</small></div>
+          <div class="btn-row">
+            <button class="btn-ghost" id="set-export-goals">Export</button>
+            <button class="btn-ghost" id="set-import-goals">Import…</button>
+            <button class="btn-danger-ghost" id="set-reset-goals" title="Delete all goals">Reset</button>
+            <input type="file" id="set-import-goals-file" accept=".json" style="display:none">
+          </div>
+        </div>
+
+        <!-- Projects (stored under fin_holidays for legacy reasons) -->
+        <div class="set-row">
+          <div class="lab">Projects<small>JSON · holidays &amp; multi-stage projects</small></div>
+          <div class="btn-row">
+            <button class="btn-ghost" id="set-export-projects">Export</button>
+            <button class="btn-ghost" id="set-import-projects">Import…</button>
+            <button class="btn-danger-ghost" id="set-reset-projects" title="Delete all projects">Reset</button>
+            <input type="file" id="set-import-projects-file" accept=".json" style="display:none">
+          </div>
+        </div>
+
+        <!-- Forecast items -->
+        <div class="set-row">
+          <div class="lab">Forecast items<small>JSON</small></div>
+          <div class="btn-row">
+            <button class="btn-ghost" id="set-export-forecast">Export</button>
+            <button class="btn-ghost" id="set-import-forecast">Import…</button>
+            <button class="btn-danger-ghost" id="set-reset-forecast" title="Delete all forecast items">Reset</button>
+            <input type="file" id="set-import-forecast-file" accept=".json" style="display:none">
+          </div>
+        </div>
+
+        <!-- Full backup -->
+        <div class="set-row">
+          <div class="lab">Full backup<small>all data as JSON</small></div>
+          <div class="btn-row">
+            <button class="btn-primary" id="set-export-json">Export backup</button>
+            <button class="btn-ghost" id="set-import-full">Restore backup…</button>
+            <input type="file" id="set-import-full-file" accept=".json" style="display:none">
+          </div>
+        </div>
+
+        <!-- Reset -->
+        <div class="set-row">
+          <div class="lab" style="color:var(--neg)">Reset all<small>delete every transaction, budget, snapshot, setting</small></div>
+          <div class="btn-row"><button class="btn-danger" id="set-reset">Reset all data</button></div>
+        </div>
+      </div>
+
+      <div class="card set-section" id="sec-about">
+        <h2>About</h2>
+        <div class="desc">Japtrack · private, local-first finance tracker</div>
+        <div class="set-row">
+          <div class="lab">Version</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-2)" id="about-version">—</div>
+        </div>
+        <div class="set-row">
+          <div class="lab">Data file<small>your data lives here on this device</small></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-3);word-break:break-all;margin-bottom:6px" id="about-datapath">localStorage (browser mode)</div>
+            <button class="btn-ghost" id="about-open-folder" style="display:none">Open data folder</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="lab">Updates</div>
+          <div class="btn-row"><button class="btn-ghost" id="about-check-updates">Check for updates</button></div>
+        </div>
+        <div class="set-row" style="align-items:flex-start">
+          <div class="lab">Diagnostics<small>self-test the data layer (read-only)</small></div>
+          <div style="flex:1;min-width:0">
+            <div class="btn-row"><button class="btn-ghost" id="about-run-diag">Run data diagnostics</button></div>
+            <div id="diag-out" style="margin-top:8px"></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:var(--ink-3);line-height:1.7;margin-top:10px">
+          <div><b>How your data is kept</b> — everything stays on this device in a single JSON file (or browser storage in web mode). Nothing is uploaded. Three rolling local backups guard against a corrupt write.</div>
+          <div style="margin-top:6px"><b>Recommended:</b> Settings → Import &amp; Export → <b>Export backup</b> regularly, and after big changes. Restore from the same screen. A PIN (Appearance → App lock) protects the app on shared machines; there is no PIN recovery, so keep a backup.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div><!-- /app -->
+
+<!-- ══ PROFILE MODAL ══ (opened from sidebar profile button) -->
+<div class="modal-backdrop" id="profile-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:520px">
+    <h3>Profile</h3>
+    <div class="set-row" style="grid-template-columns:140px 1fr">
+      <div class="lab">Profile picture<small>upload an image, or use the first letter of your name</small></div>
+      <div class="avatar-controls">
+        <button type="button" id="set-av-btn" class="profile-av" title="Click to upload an image" aria-label="Upload profile picture">
+          <div class="avatar-large" id="set-av-preview"></div>
+          <span class="profile-av-overlay">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l3-3h4l3 3h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"/><circle cx="12" cy="13" r="4"/></svg>
+            <span>Change</span>
+          </span>
+        </button>
+        <input type="file" id="set-av-file" accept="image/*" style="display:none" />
+        <div class="profile-av-actions">
+          <button type="button" class="btn-ghost" id="set-av-letter" style="padding:6px 12px;font-size:12px">Use letter</button>
+        </div>
+      </div>
+    </div>
+    <div class="set-row" style="grid-template-columns:140px 1fr">
+      <div class="lab">Display name<small>shown in sidebar</small></div>
+      <input type="text" id="set-name" placeholder="Your name" />
+    </div>
+    <div class="set-row" style="grid-template-columns:140px 1fr">
+      <div class="lab">Currency<small>display only</small></div>
+      <select id="set-currency"><option value="GBP">GBP (£)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option></select>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-primary" id="profile-m-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="nw-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="nw-modal-title">Add snapshot</h3>
+    <div class="row"><label>Month</label><input id="nw-m-month" type="month" /></div>
+    <div style="margin-top:8px;font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.06em;font-weight:500;padding:6px 0">Bucket balances</div>
+    <div id="nw-m-buckets"></div>
+    <div style="margin-top:10px;padding:10px 12px;background:var(--bg-sunk);border-radius:8px;display:flex;justify-content:space-between;font-size:13px">
+      <span style="color:var(--ink-3)">Total</span>
+      <span class="num" id="nw-m-total" style="font-weight:500">£0</span>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="nw-m-cancel">Cancel</button>
+      <button class="btn-primary" id="nw-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tx-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="tx-modal-title">Add transaction</h3>
+    <div class="row"><label>Type</label>
+      <div class="seg-row" id="tx-m-type-seg">
+        <button aria-pressed="true" data-type="out">Expense</button>
+        <button data-type="in">Income</button>
+        <button data-type="transfer">Transfer</button>
+      </div>
+    </div>
+    <div class="row"><label>Date</label><input id="tx-m-date" type="date" /></div>
+    <div class="row"><label>Amount (£)</label><input id="tx-m-amt" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+    <div class="row" data-only="out,in" id="tx-m-cat-row"><label>Category</label><select id="tx-m-cat"></select></div>
+    <div class="row" data-only="out,in" id="tx-m-split-toggle-row">
+      <label><input type="checkbox" id="tx-m-split-toggle" style="width:14px;height:14px;accent-color:var(--ink);margin-right:6px;cursor:pointer"> Split between categories</label>
+    </div>
+    <div data-only="out,in" id="tx-m-split-wrap" hidden>
+      <div id="tx-m-splits"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <button class="btn-ghost" type="button" id="tx-m-split-add" style="padding:6px 12px;font-size:12px">+ Add row</button>
+        <span id="tx-m-split-status" style="font-size:11.5px;color:var(--ink-3);margin-left:auto;font-family:'IBM Plex Mono',monospace"></span>
+      </div>
+    </div>
+    <div class="row" data-only="out,in"><label>Account</label><select id="tx-m-acct"></select></div>
+    <div class="row" data-only="transfer"><label>From account</label><select id="tx-m-from"></select></div>
+    <div class="row" data-only="transfer"><label>To account</label><select id="tx-m-to"></select></div>
+    <div class="row"><label>Description</label><input id="tx-m-desc" type="text" placeholder="Optional" /></div>
+    <div class="row"><label>Notes</label><input id="tx-m-notes" type="text" placeholder="e.g. 'payment for shoes' — shown under the merchant" /></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="tx-m-cancel">Cancel</button>
+      <button class="btn-primary" id="tx-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tx-bulk-cat-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>Recategorise selected</h3>
+    <div class="row"><label>New category</label><select id="tx-bulk-cat-sel"></select></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="document.getElementById('tx-bulk-cat-modal').hidden=true">Cancel</button>
+      <button class="btn-primary" id="tx-bulk-cat-save">Apply to all</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="sched-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="sched-modal-title">Add scheduled</h3>
+    <div class="row"><label>Type</label>
+      <div class="seg-row" id="sched-m-type-seg">
+        <button aria-pressed="true" data-type="out">Expense</button>
+        <button data-type="in">Income</button>
+      </div>
+    </div>
+    <div class="row"><label>Description</label><input id="sched-m-desc" type="text" placeholder="Netflix, Salary..." /></div>
+    <div class="row"><label>Amount (£)</label><input id="sched-m-amt" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+    <div class="row"><label>Day of month</label><input id="sched-m-day" type="number" min="1" max="31" placeholder="1–31" /></div>
+    <div class="row"><label>Category</label><select id="sched-m-cat"></select></div>
+    <div class="row" id="sched-m-repay-row" style="display:none"><label>Total to repay (£)</label><input id="sched-m-total" type="number" step="0.01" min="0" placeholder="original balance, e.g. 660" /></div>
+    <div class="row" id="sched-m-paid-row" style="display:none"><label>Already paid (£)</label><input id="sched-m-paid" type="number" step="0.01" min="0" placeholder="0.00 — leave 0 if starting fresh" /></div>
+    <div class="row"><label>Account</label><select id="sched-m-acct"></select></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="sched-m-cancel">Cancel</button>
+      <button class="btn-primary" id="sched-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="goal-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="goal-modal-title">Add goal</h3>
+    <div class="row"><label>Name</label><input id="goal-m-name" type="text" placeholder="e.g. Emergency fund" /></div>
+    <div class="row"><label>Target (£)</label><input id="goal-m-target" type="number" step="0.01" min="0" placeholder="5000" /></div>
+    <div class="row"><label>Deadline</label><input id="goal-m-deadline" type="date" /></div>
+    <div class="row"><label>Track via</label>
+      <div class="seg-row" id="goal-m-type-seg">
+        <button aria-pressed="true" data-type="manual">Manual</button>
+        <button data-type="bucket">NW bucket</button>
+      </div>
+    </div>
+    <div class="row" data-only="bucket"><label>Bucket</label><select id="goal-m-bucket"></select></div>
+    <div class="row" data-only="bucket"><label>Start value (£)</label><input id="goal-m-start" type="number" step="0.01" placeholder="current bucket value" /></div>
+    <div class="row" data-only="manual"><label>Saved so far (£)</label><input id="goal-m-current" type="number" step="0.01" min="0" value="0" /></div>
+    <div class="row"><label>Icon</label><input id="goal-m-icon" type="text" maxlength="2" placeholder="🎯" /></div>
+    <div class="row"><label>Colour</label><input id="goal-m-color" type="color" class="color-swatch-inp" value="#7fb069" /></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="goal-m-cancel">Cancel</button>
+      <button class="btn-primary" id="goal-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DEBT MODAL (create / edit) ══ -->
+<div class="modal-backdrop" id="debt-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="debt-modal-title">Add debt</h3>
+    <div class="row"><label>Name</label><input id="debt-m-name" type="text" placeholder="e.g. Barclaycard, Car loan" /></div>
+    <div class="row"><label>Balance (£)</label><input id="debt-m-balance" type="number" step="0.01" min="0" placeholder="2500" /></div>
+    <div class="row"><label>Interest rate (APR %)</label><input id="debt-m-apr" type="number" step="0.01" min="0" placeholder="19.9" /></div>
+    <div class="row"><label>Min. monthly payment (£)</label><input id="debt-m-min" type="number" step="0.01" min="0" placeholder="50" /></div>
+    <div class="row"><label>Colour</label><input id="debt-m-color" type="color" class="color-swatch-inp" value="#d97757" /></div>
+    <div class="modal-foot">
+      <button class="btn-danger" id="debt-m-delete" style="margin-right:auto;display:none">Delete</button>
+      <button class="btn-ghost" id="debt-m-cancel">Cancel</button>
+      <button class="btn-primary" id="debt-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOLIDAY MODAL (create / edit) ══ -->
+<div class="modal-backdrop" id="hol-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:460px">
+    <h3 id="hol-modal-title">New project</h3>
+    <div class="row"><label>Name</label><input id="hol-m-name" type="text" placeholder="e.g. Italy 2026" /></div>
+    <div class="row"><label>From</label><input id="hol-m-start" type="date" /></div>
+    <div class="row"><label>To</label><input id="hol-m-end" type="date" /></div>
+    <div class="row"><label>Notes</label><input id="hol-m-notes" type="text" placeholder="optional" /></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="hol-m-cancel">Cancel</button>
+      <button class="btn-primary" id="hol-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOLIDAY ITEM MODAL (create / edit line item) ══ -->
+<div class="modal-backdrop" id="hol-item-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:560px;max-width:calc(100vw - 40px)">
+    <h3 id="hol-item-modal-title">Add expense</h3>
+    <div class="row"><label>Description</label><input id="hol-it-desc" type="text" placeholder="e.g. BA flights LHR→FCO" /></div>
+    <div class="row"><label>Amount (£)</label><input id="hol-it-amt" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+    <div class="row"><label>Category</label><select id="hol-it-cat"></select></div>
+    <div class="row"><label>Sub-type</label><input id="hol-it-sublabel" type="text" placeholder="optional, e.g. Flights / Hotel / Food" /></div>
+    <!-- Flight-only fields: revealed when Sub-type mentions a flight -->
+    <div class="row" id="hol-it-flight-fields" style="display:none;align-items:start">
+      <label>Flight</label>
+      <div class="hol-flight-grid">
+        <div>
+          <small>Departure</small>
+          <input type="datetime-local" id="hol-it-flight-depart" />
+        </div>
+        <div>
+          <small>Arrival</small>
+          <input type="datetime-local" id="hol-it-flight-arrive" />
+        </div>
+        <input type="text" id="hol-it-flight-number" placeholder="Flight no. or airline (optional)" />
+      </div>
+    </div>
+    <div class="row"><label>Link</label><input id="hol-it-link" type="url" placeholder="https://… (optional, e.g. booking page)" /></div>
+    <div class="row"><label>Notes</label><input id="hol-it-notes" type="text" placeholder="optional" /></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="hol-it-cancel">Cancel</button>
+      <button class="btn-primary" id="hol-it-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SET / CHANGE PIN ══ -->
+<div class="modal-backdrop" id="pin-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:380px">
+    <h3 id="pin-modal-title">Set a PIN</h3>
+    <div style="font-size:12.5px;color:var(--ink-3);margin:4px 0 12px;line-height:1.6">A 4–6 digit PIN locks the app on launch and after inactivity. Only a hashed copy is stored — there's no way to recover a forgotten PIN.</div>
+    <div class="row" id="pin-cur-row" style="display:none"><label>Current PIN</label><input id="pin-cur" type="password" inputmode="numeric" maxlength="6" autocomplete="off" /></div>
+    <div class="row"><label>New PIN</label><input id="pin-new" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="4–6 digits" /></div>
+    <div class="row"><label>Confirm</label><input id="pin-confirm" type="password" inputmode="numeric" maxlength="6" autocomplete="off" /></div>
+    <div class="lock-err" id="pin-err" style="text-align:left;min-height:16px"></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="pin-cancel">Cancel</button>
+      <button class="btn-primary" id="pin-save">Save PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FIRST-RUN ONBOARDING ══ -->
+<div class="modal-backdrop" id="onboard-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:460px">
+    <h3>Welcome to Japtrack</h3>
+    <div style="font-size:13px;color:var(--ink-3);margin:6px 0 14px;line-height:1.6">A private, local-first finance tracker. Your data never leaves this device. Let's set things up.</div>
+    <div class="row"><label>Your name</label><input id="onb-name" type="text" placeholder="e.g. Alex" autocomplete="off" /></div>
+    <div class="row"><label>Base currency</label>
+      <select id="onb-currency">
+        <option value="GBP">£ GBP — British Pound</option>
+        <option value="USD">$ USD — US Dollar</option>
+        <option value="EUR">€ EUR — Euro</option>
+        <option value="CAD">$ CAD — Canadian Dollar</option>
+        <option value="AUD">$ AUD — Australian Dollar</option>
+        <option value="JPY">¥ JPY — Japanese Yen</option>
+        <option value="INR">₹ INR — Indian Rupee</option>
+      </select>
+    </div>
+    <div class="row"><label>Starting point</label>
+      <div class="seg-row" id="onb-seed-seg">
+        <button aria-pressed="true" data-seed="empty">Start empty</button>
+        <button data-seed="sample">Load sample data</button>
+      </div>
+    </div>
+    <div style="font-size:11.5px;color:var(--ink-4);margin:-4px 0 4px">Sample data adds ~3 months of example transactions, accounts and budgets so you can explore. You can reset anytime in Settings → Import &amp; Export.</div>
+    <div class="modal-foot">
+      <button class="btn-primary" id="onb-start" style="margin-left:auto">Get started</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="cat-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="cat-modal-title">Add custom category</h3>
+    <div class="row"><label>Type</label>
+      <div class="seg-row" id="cat-m-type-seg">
+        <button aria-pressed="true" data-type="exp">Expense</button>
+        <button data-type="inc">Income</button>
+      </div>
+    </div>
+    <div class="row"><label>Name</label><input id="cat-m-name" type="text" placeholder="e.g. Pets" /></div>
+    <div class="row"><label>Emoji / icon</label><input id="cat-m-icon" type="text" maxlength="2" placeholder="🐾" /></div>
+    <div class="row"><label>Colour</label><input id="cat-m-color" type="color" class="color-swatch-inp" value="#7fb069" /></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="cat-m-cancel">Cancel</button>
+      <button class="btn-primary" id="cat-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="bud-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="bud-modal-title">Add budget</h3>
+    <div class="row"><label>Category</label><select id="bud-m-cat"></select></div>
+    <div class="row"><label>Monthly limit (£)</label><input id="bud-m-amt" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+    <div class="row"><label>Repeat</label><label style="justify-content:flex-start;color:var(--ink)"><input id="bud-m-repeat" type="checkbox" checked style="width:14px;height:14px;margin-right:7px;accent-color:var(--accent)" /> Monthly</label></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="bud-m-cancel">Cancel</button>
+      <button class="btn-primary" id="bud-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BANK STATEMENT ISSUER PICKER (shown before review modal) ══ -->
+<div class="modal-backdrop" id="bankissuer-modal" hidden>
+  <div class="modal" style="width:480px;max-width:calc(100vw - 32px)" onclick="event.stopPropagation()">
+    <h3>Whose statement is this?</h3>
+    <p style="color:var(--ink-3);font-size:13px;line-height:1.55;margin:6px 0 14px">
+      Picking the issuer lets Japtrack apply the right sign rules.
+      <span id="bankissuer-rowcount" style="display:block;margin-top:4px;color:var(--ink-4);font-size:12px"></span>
+    </p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn-issuer" data-issuer="amex" style="text-align:left;padding:14px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg-elev);color:var(--ink);cursor:pointer">
+        <div style="font-weight:600;font-size:14px;margin-bottom:2px">American Express</div>
+        <div style="font-size:12px;color:var(--ink-3);line-height:1.5">Every charge is treated as an expense. "Payment received" lines from your bank are excluded by default to avoid double-counting.</div>
+      </button>
+      <button class="btn-issuer" data-issuer="santander" style="text-align:left;padding:14px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg-elev);color:var(--ink);cursor:pointer">
+        <div style="font-weight:600;font-size:14px;margin-bottom:2px">Santander</div>
+        <div style="font-size:12px;color:var(--ink-3);line-height:1.5">Normal bank statement — positive = money in, negative = money out.</div>
+      </button>
+      <button class="btn-issuer" data-issuer="other" style="text-align:left;padding:14px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg-elev);color:var(--ink);cursor:pointer">
+        <div style="font-weight:600;font-size:14px;margin-bottom:2px">Other / let me choose</div>
+        <div style="font-size:12px;color:var(--ink-3);line-height:1.5">Open the review modal with auto-detected sign rules — you can switch between Bank and Credit-card in the dropdown.</div>
+      </button>
+    </div>
+    <div class="modal-foot" style="margin-top:14px">
+      <button class="btn-ghost" id="bankissuer-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AMEX PAYMENTS REVIEW (step 2 of import pipeline) ══ -->
+<div class="modal-backdrop" id="amexpayments-modal" hidden>
+  <div class="modal" style="width:600px;max-width:calc(100vw - 32px)" onclick="event.stopPropagation()">
+    <h3>Amex statement — exclude bank payments?</h3>
+    <p style="color:var(--ink-3);font-size:13px;line-height:1.55;margin:6px 0 12px">
+      Found <b id="amexpayments-count">0</b> "Payment received" / adjustment rows in this statement. These are settlements from your bank that already appear on your Santander statement — importing them double-counts the same transfer.
+    </p>
+    <div id="amexpayments-list" style="max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.7;color:var(--ink-2);margin-bottom:14px"></div>
+    <div class="modal-foot" style="gap:8px">
+      <button class="btn-ghost" id="amexpayments-cancel">Cancel import</button>
+      <button class="btn-ghost" id="amexpayments-include">Include them anyway</button>
+      <button class="btn-primary" id="amexpayments-exclude">Exclude (recommended)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ REFUND PAIRING (step 3 of import pipeline) ══ -->
+<div class="modal-backdrop" id="refundpair-modal" hidden>
+  <div class="modal" style="width:720px;max-width:calc(100vw - 32px)" onclick="event.stopPropagation()">
+    <h3>We spotted some refunds — pair them with the original charges?</h3>
+    <p style="color:var(--ink-3);font-size:13px;line-height:1.55;margin:6px 0 12px">
+      For each pair below, the refund will be tagged with the original purchase's expense category so they cancel out in your spending breakdown. Untick a row to keep the refund as <i>Other Income</i> instead.
+    </p>
+    <div id="refundpair-list" style="max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);margin-bottom:14px"></div>
+    <div class="modal-foot" style="gap:8px">
+      <button class="btn-ghost" id="refundpair-cancel">Cancel import</button>
+      <button class="btn-ghost" id="refundpair-skip">Skip — keep as income</button>
+      <button class="btn-primary" id="refundpair-apply">Apply pairings</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BANK STATEMENT IMPORT REVIEW MODAL ══ -->
+<div class="modal-backdrop" id="bankimp-modal" hidden>
+  <div class="modal bankimp-modal" onclick="event.stopPropagation()">
+    <h3 id="bankimp-title">Review imported transactions</h3>
+    <div id="bankimp-summary" style="font-size:12.5px;color:var(--ink-3);margin-top:4px"></div>
+    <div style="display:flex;gap:14px;align-items:center;margin:12px 0 8px;flex-wrap:wrap">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.05em">
+        Account
+        <select id="bankimp-acct" class="set-select" style="min-width:160px"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.05em" title="Bank: positive = money in, negative = money out. Credit card: positive = charge (expense), negative = payment to card (transfer).">
+        Statement type
+        <select id="bankimp-source-type" class="set-select" style="min-width:180px">
+          <option value="bank">Bank / debit (default)</option>
+          <option value="credit">Credit card</option>
+        </select>
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);cursor:pointer">
+        <input type="checkbox" id="bankimp-skip-dupes" checked /> Skip duplicates
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);cursor:pointer" title="Save name / category / type / to-account for each merchant so future imports auto-fill.">
+        <input type="checkbox" id="bankimp-learn" checked /> Remember as rules
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);cursor:pointer" title="Collapse identical merchants into one row — edit the row once and the change applies to every matching transaction.">
+        <input type="checkbox" id="bankimp-group" checked /> Group by merchant
+      </label>
+      <span style="margin-left:auto;font-size:12px;color:var(--ink-3)" id="bankimp-counts"></span>
+    </div>
+    <div class="bankimp-list" id="bankimp-list"></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="bankimp-cancel">Cancel</button>
+      <button class="btn-primary" id="bankimp-import">Import selected</button>
+    </div>
+  </div>
+</div>
+
+<div class="bulk-bar" id="tx-bulk-bar" hidden>
+  <span><b id="tx-bulk-count">0</b> selected</span>
+  <button id="tx-bulk-cat">Recategorise</button>
+  <button id="tx-bulk-accts">Bulk edit</button>
+  <button class="danger" id="tx-bulk-del">Delete</button>
+  <button onclick="clearTxSelection()">Cancel</button>
+</div>
+
+<!-- ══ EDIT ACCOUNT MODAL (name + notes) ══ -->
+<div class="modal-backdrop" id="acc-snap-mgr" hidden>
+  <div class="modal acc-snap-modal" onclick="event.stopPropagation()">
+    <div class="acc-modal-head">
+      <div>
+        <h3>Snapshot manager</h3>
+        <p>Review and edit monthly account balances.</p>
+      </div>
+      <button class="icon-btn" id="acc-snap-mgr-close" title="Close" aria-label="Close snapshot manager">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="acc-mgr-table-wrap">
+      <table class="acc-mgr-table">
+        <thead><tr><th>Month</th><th>Total balance</th><th>Delta vs prior</th><th>State</th><th></th></tr></thead>
+        <tbody id="acc-snap-mgr-rows"></tbody>
+      </table>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="acc-snap-mgr-add">Create new snapshot</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="acct-edit-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:420px">
+    <h3>Edit account</h3>
+    <div class="row"><label>Name</label><input type="text" id="acct-edit-name" /></div>
+    <div class="row"><label>Notes</label><input type="text" id="acct-edit-note" placeholder="optional" /></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="acct-edit-cancel">Cancel</button>
+      <button class="btn-primary" id="acct-edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BULK EDIT MODAL (description + accounts) ══ -->
+<div class="modal-backdrop" id="tx-bulk-accts-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:420px">
+    <h3>Bulk edit</h3>
+    <p class="confirm-msg">Leave fields blank or on "Don't change" to keep existing values.</p>
+    <div class="row"><label>Description</label><input type="text" id="tx-bulk-desc" placeholder="(leave blank to keep)" /></div>
+    <div class="row" id="tx-bulk-acct-row"><label>Account</label><select id="tx-bulk-acct-sel"></select></div>
+    <div class="row" id="tx-bulk-from-row"><label>From account</label><select id="tx-bulk-from-sel"></select></div>
+    <div class="row" id="tx-bulk-to-row"><label>To account</label><select id="tx-bulk-to-sel"></select></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="document.getElementById('tx-bulk-accts-modal').hidden=true">Cancel</button>
+      <button class="btn-primary" id="tx-bulk-accts-save">Apply</button>
+    </div>
+  </div>
+</div>
+
+<div class="bulk-bar" id="bud-bulk-bar" hidden>
+  <span><b id="bud-bulk-count">0</b> selected</span>
+  <button class="danger" id="bud-bulk-del">Delete</button>
+  <button onclick="clearBudSelection()">Cancel</button>
+</div>
+
+<!-- ══ CONFIRM DIALOG ══ -->
+<div class="modal-backdrop" id="confirm-modal" hidden>
+  <div class="modal confirm-modal" onclick="event.stopPropagation()">
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p id="confirm-msg" class="confirm-msg"></p>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DATA INTEGRITY MODAL ══ -->
+<div class="modal-backdrop" id="audit-modal" hidden>
+  <div class="modal audit-modal" onclick="event.stopPropagation()">
+    <h3>Data integrity</h3>
+    <div id="audit-summary" style="font-size:12.5px;color:var(--ink-3);margin-top:4px"></div>
+    <div id="audit-body" style="margin-top:14px;max-height:60vh;overflow-y:auto"></div>
+    <div class="modal-foot">
+      <button class="btn-primary" id="audit-close">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MERCHANT RULE EDIT MODAL ══ -->
+<div class="modal-backdrop" id="rule-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()" style="width:480px">
+    <h3 id="rule-modal-title">Edit merchant rule</h3>
+    <div class="row"><label>Pattern<small>matches anywhere in raw description (case-insensitive). Wrap in slashes for regex: <code>/^TRADING/i</code></small></label><input type="text" id="rule-m-pattern" placeholder="e.g. TRADING 212" /></div>
+    <div class="row"><label>Display name<small>what you'll see on the transaction</small></label><input type="text" id="rule-m-name" placeholder="e.g. Trading 212" /></div>
+    <div class="row"><label>Type</label>
+      <select id="rule-m-type">
+        <option value="out">Expense (out)</option>
+        <option value="in">Income (in)</option>
+        <option value="transfer">Transfer</option>
+      </select>
+    </div>
+    <div class="row" id="rule-m-cat-row"><label>Category</label><select id="rule-m-cat"></select></div>
+    <div class="row" id="rule-m-toacct-row" style="display:none"><label>To account</label><select id="rule-m-toacct"></select></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="rule-m-cancel">Cancel</button>
+      <button class="btn-primary" id="rule-m-save">Save rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PROMPT DIALOG ══ -->
+<div class="modal-backdrop" id="prompt-modal" hidden>
+  <div class="modal confirm-modal" onclick="event.stopPropagation()">
+    <h3 id="prompt-title">Enter a value</h3>
+    <p id="prompt-msg" class="confirm-msg"></p>
+    <input type="text" id="prompt-input" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;outline:none;margin-top:4px" />
+    <div class="modal-foot">
+      <button class="btn-ghost" id="prompt-cancel">Cancel</button>
+      <button class="btn-primary" id="prompt-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FORECAST MODAL ══ -->
+<div class="modal-backdrop" id="fc-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="fc-modal-title">Add forecast item</h3>
+    <div class="row"><label>Label</label><input id="fc-m-label" placeholder="e.g. Salary, Rent, Subscriptions…" /></div>
+    <div class="row"><label>Type</label>
+      <div class="seg-row" id="fc-m-type-seg">
+        <button data-type="in" aria-pressed="true">Income</button>
+        <button data-type="out">Expense</button>
+      </div>
+    </div>
+    <div class="row"><label>Amount (£)</label><input id="fc-m-amt" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+    <div class="row"><label>Recurrence</label>
+      <div class="seg-row" id="fc-m-rec-seg">
+        <button data-rec="monthly" aria-pressed="true">Monthly</button>
+        <button data-rec="once">One-time</button>
+      </div>
+    </div>
+    <div class="row"><label>Start month</label><input id="fc-m-start" type="month" /></div>
+    <div class="row" id="fc-m-end-row">
+      <label>Duration<small style="color:var(--ink-4);font-size:11px;margin-left:4px">blank = ongoing</small></label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0">
+        <input id="fc-m-months" type="number" min="1" step="1" placeholder="e.g. 12" style="width:120px" />
+        <span style="font-size:12px;color:var(--ink-3)">months</span>
+        <span id="fc-m-end-preview" style="font-size:11.5px;color:var(--ink-4);font-family:'IBM Plex Mono',monospace"></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="fc-m-cancel">Cancel</button>
+      <button class="btn-primary" id="fc-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="plan-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="plan-modal-title">Add payment plan</h3>
+    <div class="row">
+      <label>Name</label>
+      <input id="plan-m-name" placeholder="e.g. Car loan, iPhone, Sofa…" />
+    </div>
+    <div class="row">
+      <label>Icon</label>
+      <input id="plan-m-emoji" class="emoji-inp" maxlength="2" placeholder="💳" style="width:42px;font-size:18px;text-align:center" />
+    </div>
+    <div class="row">
+      <label>Total owed (£)</label>
+      <input id="plan-m-total" type="number" step="0.01" min="0" placeholder="0.00" />
+    </div>
+    <div class="row">
+      <label>Monthly payment (£)</label>
+      <input id="plan-m-payment" type="number" step="0.01" min="0" placeholder="0.00" />
+    </div>
+    <div class="row">
+      <label>Amount paid so far (£)<small style="color:var(--ink-4);font-size:10.5px;display:block;margin-top:1px">leave 0 if just starting</small></label>
+      <input id="plan-m-paid" type="number" step="0.01" min="0" placeholder="0.00" />
+    </div>
+    <div class="row">
+      <label>Start month</label>
+      <input id="plan-m-start" type="month" />
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="plan-m-cancel">Cancel</button>
+      <button class="btn-primary" id="plan-m-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="month-pick-parking" hidden>
+  <div class="month-pick">
+    <button id="month-prev" title="Previous month"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <span class="m-label" id="month-label">May 2026</span>
+    <button id="month-next" title="Next month"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
+  </div>
+</div>
+
+<div class="sidebar-scrim" id="sidebar-scrim"></div>
+<div id="toast-el" style="display:none" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Data & utilities (load first — no DOM dependencies) -->
+<script src="./js/data.js"></script>
+<script src="./js/utils.js"></script>
+<script src="./js/charts.js"></script>
+
+<!-- Page modules -->
+<script src="./js/pages/networth.js"></script>
+<script src="./js/pages/transactions.js"></script>
+<script src="./js/pages/budgets.js"></script>
+<script src="./js/pages/scheduled.js"></script>
+<script src="./js/pages/accounts.js"></script>
+<script src="./js/pages/dashboard.js"></script>
+<script src="./js/pages/goals.js"></script>
+<script src="./js/pages/holidays.js"></script>
+<script src="./js/pages/insights.js"></script>
+<script src="./js/pages/settings.js"></script>
+<script src="./js/pages/forecast.js"></script>
+<script src="./js/pages/debt.js"></script>
+
+<!-- Router, renderAll, event listeners — must be last -->
+<script src="./js/app.js"></script>
+</body>
+</html>
