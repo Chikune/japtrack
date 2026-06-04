@@ -59,7 +59,7 @@ function _switchPageNow(name) {
   // Hide the topbar Add button where it doesn't apply: Forecast has its own
   // header add button, and Reports/insights is a read-only dashboard.
   const topAddDiv = document.querySelector(".top-add");
-  if (topAddDiv) topAddDiv.style.display = (name === "forecast" || name === "insights" || name === "settings" || name === "goals") ? "none" : "";
+  if (topAddDiv) topAddDiv.style.display = (name === "home" || name === "forecast" || name === "insights" || name === "settings" || name === "goals" || name === "help") ? "none" : "";
   // Sidebar highlight: tx sub-pages (expenses/income/transfers) all map back to the
   // "transactions" sidebar item, since they're tabs within that one page.
   const sidebarPage = (TX_PAGE_TYPES[name] && name !== "transactions") ? "transactions" : name;
@@ -90,7 +90,7 @@ function _switchPageNow(name) {
     }
   });
   // Crumbs
-  const titles = { home: "Dashboard", insights: "Reports", forecast: "Forecast", debt: "Debt payoff", networth: "Accounts · Net worth", transactions: "Transactions", expenses: "Transactions · Expenses", income: "Transactions · Income", transfers: "Transactions · Transfers", budgets: "Budgets", scheduled: "Bills & Subscriptions", accounts: "Accounts", goals: "Goals", holidays: "Holidays", settings: "Settings" };
+  const titles = { home: "Dashboard", insights: "Reports", forecast: "Forecast", debt: "Debt payoff", help: "Help & guide", networth: "Accounts · Net worth", transactions: "Transactions", expenses: "Transactions · Expenses", income: "Transactions · Income", transfers: "Transactions · Transfers", budgets: "Budgets", scheduled: "Bills & Subscriptions", accounts: "Accounts", goals: "Goals", holidays: "Holidays", settings: "Settings" };
   const crumbs = document.querySelector(".crumbs");
   if (crumbs) {
     if (name === "insights") {

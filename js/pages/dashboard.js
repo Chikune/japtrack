@@ -996,7 +996,15 @@ function renderHomeNWProjection() {
   const nwDelta = nwPrev != null ? nwCur - nwPrev : null;
   const nwPct = (nwDelta != null && nwPrev) ? (nwDelta / Math.abs(nwPrev)) * 100 : null;
 
-  const W = 1200, H = 240, pad = { l: 60, r: 16, t: 16, b: 32 };
+  // Match the viewBox to the chart area's real aspect ratio so it fills the whole box
+  // (meet then scales with no letterbox/stretch). The hero value sits above the chart,
+  // so subtract its height from the container to size the plot area accurately.
+  const W = 1200;
+  const heroH = el.querySelector(".nw-hero")?.offsetHeight || 34;
+  const cw = el.clientWidth || 1200;
+  const ch = Math.max((el.clientHeight || 240) - heroH, 120);
+  const H = Math.round(W * (ch / Math.max(cw, 1))) || 240;
+  const pad = { l: 60, r: 16, t: 16, b: 32 };
   const rawMin = Math.min(0, ...totals);
   const rawMax = Math.max(...totals, 1);
   // niceScale: pick a round step (1, 2, 2.5, 5 × 10^k) so axis labels land on
@@ -1062,7 +1070,7 @@ function renderHomeNWProjection() {
   el.innerHTML = `
     <div class="nw-hero"><span class="nw-hero-val num blur">${fmtGBP(nwCur,{dp:2})}</span>${heroDelta}</div>
     <div style="position:relative">
-      <svg id="home-nw-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" width="100%" style="display:block">
+      <svg id="home-nw-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" width="100%" style="display:block">
         ${gridLines}${xLabels}${bands}${lines}
         <line id="home-nw-cross" x1="0" x2="0" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1" opacity="0" vector-effect="non-scaling-stroke"/>
         ${allDots}
@@ -1164,7 +1172,12 @@ function renderRepTrends() {
   const rawMax = Math.max(...flat, 1);
   const { yLo: ymin, yHi: ymax, ticks: yTicks } = _niceScale(0, rawMax, 5);
 
-  const W = 1200, H = 320, pad = { l: 60, r: 56, t: 16, b: 48 };
+  // Match the viewBox to the card's real aspect ratio so the chart fills the box
+  // (preserveAspectRatio="meet" then scales it up with no letterboxing or stretch).
+  const W = 1200;
+  const cw = el.clientWidth || 1200, ch = el.clientHeight || 320;
+  const H = Math.round(W * (ch / Math.max(cw, 1))) || 320;
+  const pad = { l: 60, r: 56, t: 16, b: 48 };
   const xi = i => pad.l + (i / Math.max(months.length - 1, 1)) * (W - pad.l - pad.r);
   const yi = v => pad.t + (1 - (v - ymin) / (ymax - ymin)) * (H - pad.t - pad.b);
 
@@ -1225,7 +1238,7 @@ function renderRepTrends() {
   const svgId = "rep-trends-svg", lineId = "rep-trends-cross", tipId = "rep-trends-tip";
   el.innerHTML = `
     <div class="rt-wrap">
-      <svg id="${svgId}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" width="100%" style="display:block">
+      <svg id="${svgId}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" width="100%" style="display:block">
         ${gridLines}${xLabels}${linesSvg}${rightLabels}
         <line id="${lineId}" x1="0" x2="0" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1" opacity="0" vector-effect="non-scaling-stroke"/>
       </svg>

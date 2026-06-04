@@ -262,8 +262,6 @@ function renderTxAllTable(filtered) {
   function buildTxRows(rowsArr) {
     // Memoise the expense-category set so the refund-glyph check is O(1) per row.
     const EXP_CAT_SET = new Set(getAllCats("exp").map(c => c.id));
-    const dayNet = {};
-    rowsArr.forEach(t => { const k = t.date || ""; const ty = normType(t); if (ty === "in") dayNet[k] = (dayNet[k]||0) + t.amount; else if (ty === "out") dayNet[k] = (dayNet[k]||0) - t.amount; });
     let lastDay = null;
     return rowsArr.map(t => {
       const ty = normType(t);
@@ -297,10 +295,8 @@ function renderTxAllTable(filtered) {
       const dk = t.date || "";
       if (groupByDay && dk !== lastDay) {
         lastDay = dk;
-        const net = dayNet[dk] || 0;
-        const totCls = net > 0.005 ? "pos" : net < -0.005 ? "neg" : "";
-        const totStr = (net >= 0 ? "+£" : "−£") + Math.abs(net).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        dayHeader = `<tr class="tx-day-row" aria-hidden="true"><td></td><td colspan="4" class="tx-day-lbl">${txDayLabel(dk)}</td><td class="tx-day-total ${totCls}"><span class="blur">${totStr}</span></td><td></td></tr>`;
+        // Day-group label only — the per-day net total was removed (visual clutter).
+        dayHeader = `<tr class="tx-day-row" aria-hidden="true"><td></td><td colspan="6" class="tx-day-lbl">${txDayLabel(dk)}</td></tr>`;
       }
       return dayHeader + `<tr class="${sel ? 'tx-row-sel' : ''}">
         <td class="tx-check-col"><input type="checkbox" class="tx-row-check" ${sel ? 'checked' : ''} aria-label="Select transaction" onclick="toggleTxSelected('${t.id}')"></td>
@@ -450,14 +446,9 @@ function renderTxBulkBar() {
   const bar = document.getElementById("tx-bulk-bar");
   if (_txSelected.size) { bar.hidden = false; document.getElementById("tx-bulk-count").textContent = _txSelected.size; }
   else bar.hidden = true;
-  // Recategorise: hidden for transfers (they don't have a category).
-  const recatBtn = document.getElementById("tx-bulk-cat");
-  if (recatBtn) recatBtn.style.display = (_txAllType === "transfer") ? "none" : "";
-  // Change accounts: always available — labels and visible rows adapt to the active tab.
-  const acctBtn = document.getElementById("tx-bulk-accts");
-  if (acctBtn) acctBtn.style.display = "";
 }
 
+// Unified Bulk edit modal: description, category, note, and account(s) in one place.
 function bulkChangeAccountsOpen() {
   if (!_txSelected.size) return;
   const accts = (typeof getAllAccounts === "function") ? getAllAccounts() : (getSettings().accounts || []);
@@ -468,9 +459,28 @@ function bulkChangeAccountsOpen() {
   document.getElementById("tx-bulk-from-row").style.display = isTransfer ? "" : "none";
   document.getElementById("tx-bulk-to-row").style.display   = isTransfer ? "" : "none";
   document.getElementById("tx-bulk-desc").value = "";
+  document.getElementById("tx-bulk-note").value = "";
   document.getElementById("tx-bulk-acct-sel").innerHTML = NONE + accts.map(opt).join("");
   document.getElementById("tx-bulk-from-sel").innerHTML = NONE + accts.map(opt).join("");
   document.getElementById("tx-bulk-to-sel").innerHTML   = NONE + accts.map(opt).join("");
+  // Category — only meaningful for income/expense (transfers use from/to accounts).
+  const catRow = document.getElementById("tx-bulk-cat-row");
+  const catSel = document.getElementById("tx-bulk-cat-sel");
+  if (isTransfer) {
+    catRow.style.display = "none";
+    catSel.innerHTML = NONE;
+  } else {
+    catRow.style.display = "";
+    const copt = (c) => `<option value="${String(c.id).replace(/"/g,'&quot;')}">${c.icon||''} ${c.id}</option>`;
+    let cats;
+    if (_txAllType === "in") {
+      cats = `<optgroup label="── Income ──">${getAllCats("in").map(copt).join("")}</optgroup>`
+           + `<optgroup label="── Expense (for reimbursements) ──">${getAllCats("exp").map(copt).join("")}</optgroup>`;
+    } else {
+      cats = getAllCats("exp").map(copt).join("");
+    }
+    catSel.innerHTML = NONE + cats;
+  }
   document.getElementById("tx-bulk-accts-modal").hidden = false;
   setTimeout(() => document.getElementById("tx-bulk-desc").focus(), 30);
 }
@@ -478,15 +488,19 @@ function bulkChangeAccountsOpen() {
 function bulkChangeAccountsApply() {
   const isTransfer = _txAllType === "transfer";
   const desc = document.getElementById("tx-bulk-desc").value;
+  const note = document.getElementById("tx-bulk-note").value;
+  const cVal = document.getElementById("tx-bulk-cat-sel").value;
   const aVal = document.getElementById("tx-bulk-acct-sel").value;
   const fVal = document.getElementById("tx-bulk-from-sel").value;
   const tVal = document.getElementById("tx-bulk-to-sel").value;
   const changeDesc = desc.trim() !== "";
+  const changeNote = note.trim() !== "";
+  const changeC = !isTransfer && cVal !== "__keep__";
   const changeA = !isTransfer && aVal !== "__keep__";
   const changeF = isTransfer && fVal !== "__keep__";
   const changeT = isTransfer && tVal !== "__keep__";
-  if (!changeDesc && !changeA && !changeF && !changeT) {
-    showToast("Enter a description or pick an account to apply");
+  if (!changeDesc && !changeNote && !changeC && !changeA && !changeF && !changeT) {
+    showToast("Change at least one field to apply");
     return;
   }
   const txns = getTxns();
@@ -494,6 +508,8 @@ function bulkChangeAccountsApply() {
   txns.forEach(t => {
     if (!_txSelected.has(String(t.id))) return;
     if (changeDesc) t.description = desc.trim();
+    if (changeNote) t.notes = note.trim();
+    if (changeC) t.category = cVal;
     if (changeA) t.account = aVal;
     if (changeF) t.fromAccount = fVal;
     if (changeT) t.toAccount = tVal;
@@ -527,40 +543,6 @@ function bulkDeleteTx() {
     renderAll();
   });
 }
-
-function bulkRecategoriseTx() {
-  // On the Transfers page, "category" doesn't apply — transfers use fromAccount / toAccount.
-  // Surface a hint and bail rather than silently failing.
-  if (_txAllType === "transfer") {
-    showToast("Transfers have no category — recategorise from Expenses/Income tabs");
-    return;
-  }
-  const sel = document.getElementById("tx-bulk-cat-sel");
-  const opt = (c) => `<option value="${String(c.id).replace(/"/g,'&quot;')}">${c.icon||''} ${c.id}</option>`;
-  // Match the same expense-only or expense+income grouping as the single-edit modal.
-  if (_txAllType === "in") {
-    const inCats  = getAllCats("in");
-    const expCats = getAllCats("exp");
-    sel.innerHTML =
-      `<optgroup label="── Income ──">${inCats.map(opt).join("")}</optgroup>` +
-      `<optgroup label="── Expense (for reimbursements) ──">${expCats.map(opt).join("")}</optgroup>`;
-  } else {
-    sel.innerHTML = getAllCats("exp").map(opt).join("");
-  }
-  document.getElementById("tx-bulk-cat-modal").hidden = false;
-}
-
-document.getElementById("tx-bulk-cat-save").addEventListener("click", () => {
-  const newCat = document.getElementById("tx-bulk-cat-sel").value;
-  const txns = getTxns();
-  let n = 0;
-  txns.forEach(t => { if (_txSelected.has(String(t.id))) { t.category = newCat; n++; } });
-  lsSet("fin_txns", txns);
-  document.getElementById("tx-bulk-cat-modal").hidden = true;
-  showToast(`${n} transaction${n>1?'s':''} re-categorised`);
-  _txSelected.clear();
-  renderAll();
-});
 
 /* ── Tx modal ── */
 function openTxModal(id = null, defaultType = null, prefill = null) {
@@ -813,7 +795,6 @@ document.querySelectorAll(".tx-table-full th.sortable").forEach(th => {
 });
 
 document.getElementById("tx-bulk-del").addEventListener("click", bulkDeleteTx);
-document.getElementById("tx-bulk-cat").addEventListener("click", bulkRecategoriseTx);
 document.getElementById("tx-bulk-accts").addEventListener("click", bulkChangeAccountsOpen);
 document.getElementById("tx-bulk-accts-save").addEventListener("click", bulkChangeAccountsApply);
 document.getElementById("tx-bulk-accts-modal").addEventListener("click", e => { if (e.target.id === "tx-bulk-accts-modal") e.currentTarget.hidden = true; });

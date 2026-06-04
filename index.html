@@ -104,6 +104,10 @@
 
     <div style="flex:1"></div>
     <div class="nav-section">MORE</div>
+    <button class="nav-item" data-page="help" data-tooltip="Help &amp; guide">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><line x1="12" y1="17" x2="12" y2="17"/></svg></span>
+      <span class="nav-label">Help</span>
+    </button>
     <button class="nav-item" id="settings-btn" data-tooltip="Settings">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4.8a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.5a7 7 0 0 0-2 1.2l-2.4-.8-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-.8a7 7 0 0 0 2 1.2L10 21h4l.5-2.5a7 7 0 0 0 2-1.2l2.4.8 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></span>
       <span class="nav-label">Settings</span>
@@ -296,36 +300,34 @@
         </div>
       </div>
       <div class="grid rep-grid">
-        <div class="rep-main-row">
-          <div class="card" id="rep-trends-card">
-            <div class="card-head card-head-compact">
-              <div class="ch-titlewrap">
-                <h2>Category trends</h2>
-                <span class="ch-sub">Monthly spend · top categories</span>
-              </div>
-            </div>
-            <div id="rep-trends"></div>
-          </div>
-
-          <div class="rep-side">
-            <div class="card" id="rep-insights-card">
-              <div class="card-head card-head-compact">
-                <h2>Insights</h2>
-              </div>
-              <div id="rep-insights-list"></div>
-            </div>
-
-            <div class="card" id="home-bud-card">
-              <div class="card-head card-head-compact">
-                <h2 id="home-bud-title">Budgets</h2>
-                <button class="more" onclick="switchPage('budgets')">Edit →</button>
-              </div>
-              <div class="bud-mini" id="home-bud-list"></div>
+        <!-- Full-width category-trends chart (row 1) -->
+        <div class="card" id="rep-trends-card">
+          <div class="card-head card-head-compact">
+            <div class="ch-titlewrap">
+              <h2>Category trends</h2>
+              <span class="ch-sub">Monthly spend · top categories</span>
             </div>
           </div>
+          <div id="rep-trends"></div>
         </div>
 
-        <div class="rep-bottom-row">
+        <!-- Info cards row (row 2): Insights · Budgets · Top spend · Recent -->
+        <div class="rep-cards-row">
+          <div class="card" id="rep-insights-card">
+            <div class="card-head card-head-compact">
+              <h2>Insights</h2>
+            </div>
+            <div id="rep-insights-list"></div>
+          </div>
+
+          <div class="card" id="home-bud-card">
+            <div class="card-head card-head-compact">
+              <h2 id="home-bud-title">Budgets</h2>
+              <button class="more" onclick="switchPage('budgets')">Edit →</button>
+            </div>
+            <div class="bud-mini" id="home-bud-list"></div>
+          </div>
+
           <div class="card" id="home-topspend-card">
             <div class="card-head card-head-compact">
               <div class="ch-titlewrap">
@@ -770,6 +772,86 @@
         <div class="debt-section-head"><h2>Payoff plan</h2><span class="debt-section-sub" id="debt-plan-sub"></span></div>
         <div class="debt-plan" id="debt-plan"></div>
       </section>
+    </div>
+
+    <!-- ══ HELP / GUIDE PAGE ══ -->
+    <div class="page" id="page-help" data-page="help">
+      <div class="page-head help-page-head">
+        <div><h1>Help &amp; guide</h1><div class="sub">How Japtrack works, what each section does, and the logic behind the numbers</div></div>
+      </div>
+      <div class="help-grid">
+
+        <section class="help-card help-intro">
+          <h2>The big idea</h2>
+          <p>Japtrack is a <b>private, local-first</b> money tracker. Everything lives on this device — nothing is uploaded anywhere. You feed it transactions (by importing bank statements or adding them manually), and it turns them into spending breakdowns, budgets, forecasts and reports.</p>
+          <p>Two kinds of numbers matter here, and they work differently — this trips people up, so it's worth understanding up front:</p>
+          <ul class="help-list">
+            <li><b>Flow</b> (money moving) — your transactions. Income, spending, transfers. These are tracked automatically from what you import.</li>
+            <li><b>Balances / net worth</b> (money you <i>have</i>) — these are <b>manual snapshots</b> you enter yourself. <span class="help-warn">Adding transactions does <b>not</b> change your net worth.</span> See "Accounts &amp; Net worth" below for why.</li>
+          </ul>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">📊</span> Dashboard</h3>
+          <p>Your at-a-glance overview for the selected month: income, spending, net, savings rate, a trend chart, your top spending categories, upcoming bills, and account balances. It's read-only — a summary of everything else. Use the month arrows in the top bar to move between months.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">↕</span> Transactions</h3>
+          <p>Every income, expense and transfer. Add them manually with <b>+ Add transaction</b>, or bulk-import a bank statement under <b>Imports &amp; Rules</b>. You can filter, search, select multiple rows, and bulk edit or delete.</p>
+          <p><b>Imports &amp; Rules:</b> upload a CSV/statement and Japtrack groups it by merchant and suggests categories. <b>Merchant rules</b> are remembered so the next time it sees "TESCO" it auto-fills Groceries. You control which rows become rules.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">↩</span> Refunds &amp; reimbursements</h3>
+          <p>When a refund is paired with its original charge during import, <b>both sides are filed under a hidden "Refunds" category</b> and excluded from spending and income — because nothing really left your account, it cancels out. This keeps your "actually spent" figure honest.</p>
+          <p>Money tagged <b>Reimbursement</b> (e.g. a work expense paid back) also reduces your real spending total, rather than showing as extra income.</p>
+        </section>
+
+        <section class="help-card help-span">
+          <h3><span class="help-ic">🏦</span> Accounts &amp; Net worth <span class="help-badge">read this</span></h3>
+          <p>This is the part that surprises people. <b>Net worth is built from manual snapshots you enter</b>, not from your transactions.</p>
+          <p>Why? Your transactions only cover the accounts you import. They don't know your investment growth, your pension, your crypto, the interest on savings, or accounts you haven't connected. If net worth were auto-calculated from transactions alone, it would be wrong. So instead you periodically take a <b>snapshot</b> — "here's what each account is actually worth today" — and Japtrack charts those over time.</p>
+          <p class="help-warn"><b>Consequence:</b> adding a transfer (e.g. moving £200 from Current Account to Savings) records the movement, but it does <b>not</b> change your net worth — and that's correct, because moving your own money between your own accounts doesn't make you richer or poorer. Your net worth only updates when you add a new snapshot.</p>
+          <p class="help-todo"><b>On the roadmap:</b> letting transactions optionally nudge account balances between snapshots. The tricky part is avoiding double-counting (a snapshot already reflects reality, so transactions after it would need careful reconciliation). For now, snapshots are the single source of truth for balances.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">💷</span> Budgets</h3>
+          <p>Set a monthly spending limit per category. The page shows what you've spent vs. budgeted, what's left, and your pace through the month. Budgets are compared against your actual transactions, so keep categories tidy for accurate tracking.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">📅</span> Bills &amp; Subscriptions</h3>
+          <p>Recurring payments (rent, Netflix, phone). Japtrack shows what's due this month, what's been paid, and your next due date. Some recurring items are detected from imports; you can also add them manually.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">🎯</span> Goals</h3>
+          <p>Savings targets. Track a goal manually, or pin it to one of your net-worth buckets so it updates as your snapshots grow.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">🧮</span> Debt calculator</h3>
+          <p>List your debts (balance, APR, minimum payment) and Japtrack plans the fastest route to debt-free using the <b>Avalanche</b> (highest interest first — saves the most) or <b>Snowball</b> (smallest balance first — quick wins) method. The projection chart shows your balance falling to zero; hover any point for that month's payment, interest, and remaining balance.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">📈</span> Forecast</h3>
+          <p>Projects your account balance forward using recurring income/bills plus any one-off items you add. Use it to spot a tight month before it happens.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">📉</span> Reports</h3>
+          <p>Deeper analysis: category trends over time, biggest movers, top merchants, and where your money actually goes. Driven by the same transaction data as everywhere else.</p>
+        </section>
+
+        <section class="help-card">
+          <h3><span class="help-ic">🔒</span> Your data &amp; privacy</h3>
+          <p>Everything is stored locally on this device — never uploaded. You can export or back up your data from <b>Settings → Import &amp; Export</b>. Bank-statement imports are processed on your machine; nothing leaves it.</p>
+        </section>
+
+      </div>
     </div>
 
     <!-- ══ FORECAST PAGE ══ -->
@@ -1301,16 +1383,7 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="tx-bulk-cat-modal" hidden>
-  <div class="modal" onclick="event.stopPropagation()">
-    <h3>Recategorise selected</h3>
-    <div class="row"><label>New category</label><select id="tx-bulk-cat-sel"></select></div>
-    <div class="modal-foot">
-      <button class="btn-ghost" onclick="document.getElementById('tx-bulk-cat-modal').hidden=true">Cancel</button>
-      <button class="btn-primary" id="tx-bulk-cat-save">Apply to all</button>
-    </div>
-  </div>
-</div>
+<!-- Recategorise was merged into the unified Bulk edit modal (tx-bulk-accts-modal). -->
 
 <div class="modal-backdrop" id="sched-modal" hidden>
   <div class="modal" onclick="event.stopPropagation()">
@@ -1599,7 +1672,6 @@
 
 <div class="bulk-bar" id="tx-bulk-bar" hidden>
   <span><b id="tx-bulk-count">0</b> selected</span>
-  <button id="tx-bulk-cat">Recategorise</button>
   <button id="tx-bulk-accts">Bulk edit</button>
   <button class="danger" id="tx-bulk-del">Delete</button>
   <button onclick="clearTxSelection()">Cancel</button>
@@ -1647,6 +1719,8 @@
     <h3>Bulk edit</h3>
     <p class="confirm-msg">Leave fields blank or on "Don't change" to keep existing values.</p>
     <div class="row"><label>Description</label><input type="text" id="tx-bulk-desc" placeholder="(leave blank to keep)" /></div>
+    <div class="row" id="tx-bulk-cat-row"><label>Category</label><select id="tx-bulk-cat-sel"></select></div>
+    <div class="row"><label>Note</label><input type="text" id="tx-bulk-note" placeholder="(leave blank to keep)" /></div>
     <div class="row" id="tx-bulk-acct-row"><label>Account</label><select id="tx-bulk-acct-sel"></select></div>
     <div class="row" id="tx-bulk-from-row"><label>From account</label><select id="tx-bulk-from-sel"></select></div>
     <div class="row" id="tx-bulk-to-row"><label>To account</label><select id="tx-bulk-to-sel"></select></div>
