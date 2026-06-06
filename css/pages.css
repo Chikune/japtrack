@@ -390,7 +390,8 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 .acc-tabs button.active { background: var(--accent); color: var(--accent-fg); }
 
 /* ── Accounts page premium snapshot layout ── */
-#page-accounts.active { display: block; }
+#page-accounts.active { display: flex; flex-direction: column; min-height: 0; }
+#page-accounts #acc-tab-accounts { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 #page-accounts { padding-top: 30px; }
 #page-accounts > .acc-tabs { display: none; }
 #page-accounts .acc-page-head { margin-bottom: 22px; }
@@ -433,9 +434,9 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 /* Single column by default so the KPI cards + list fill the full width.
    The detail panel column (382px) is only reserved when a row is selected
    and #acc-panel actually has content. */
-#page-accounts .acc-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+#page-accounts .acc-body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; align-items: stretch; flex: 1; min-height: 0; }
 #page-accounts .acc-body:has(.acc-panel:not(:empty)) { grid-template-columns: minmax(0, 1fr) 382px; }
-#page-accounts .acc-body-main { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+#page-accounts .acc-body-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 14px; }
 #page-accounts .acc-list-card { padding: 0; overflow: hidden; }
 #page-accounts .acc-list-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 22px 16px; border-bottom: 1px solid var(--line-2); }
 #page-accounts .acc-list-head h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink); }
@@ -544,6 +545,165 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 #page-accounts .acc-panel-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line-2); }
 #page-accounts .acc-panel-actions button { min-height: 42px; justify-content: center; }
 #page-accounts .acc-muted { color: var(--ink-4); font-size: 12.5px; }
+
+/* ── Editable balances grid v3 (toolbar bar + fill-height scrolling table) ── */
+/* Top bar: title left · Add buttons + Save right (moved out of the card) */
+#page-accounts .acc-bal-bar { display: flex; align-items: center; gap: 16px; }
+#page-accounts .acc-bal-left { display: flex; align-items: center; gap: 10px; }
+#page-accounts .acc-bal-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+#page-accounts .acc-bal-title h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink); }
+#page-accounts .acc-bal-title #acc-grid-sub { color: var(--ink-3); font-size: 12.5px; white-space: nowrap; }
+#page-accounts .acc-bal-actions { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+#page-accounts .acc-tb-left { display: flex; gap: 10px; }
+#page-accounts .acc-tb-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg-sunk); color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+#page-accounts .acc-tb-btn:hover { background: color-mix(in oklch, var(--bg-sunk) 65%, var(--bg-elev)); color: var(--ink); }
+#page-accounts .acc-tb-right { display: flex; align-items: center; gap: 12px; }
+#page-accounts .acc-tb-dirty { display: none; align-items: center; gap: 7px; color: var(--warn); font-size: 12.5px; font-weight: 650; white-space: nowrap; }
+#page-accounts .acc-bal-actions.dirty .acc-tb-dirty { display: inline-flex; }
+#page-accounts .acc-tb-dirty .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+#page-accounts .acc-tb-save { position: relative; display: inline-flex; }
+#page-accounts .acc-tb-savebtn { height: 36px; padding: 0 16px; border: 0; border-radius: 9px 0 0 9px; background: var(--accent); color: var(--accent-fg); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+#page-accounts .acc-tb-savecaret { height: 36px; width: 30px; border: 0; border-left: 1px solid color-mix(in oklch, black 18%, var(--accent)); border-radius: 0 9px 9px 0; background: var(--accent); color: var(--accent-fg); cursor: pointer; font-size: 11px; }
+#page-accounts .acc-tb-savebtn:disabled, #page-accounts .acc-tb-savecaret:disabled { opacity: .45; cursor: not-allowed; }
+#page-accounts .acc-tb-savebtn:not(:disabled):hover, #page-accounts .acc-tb-savecaret:not(:disabled):hover { filter: brightness(1.06); }
+#page-accounts .acc-tb-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 170px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-elev); box-shadow: 0 18px 40px rgba(0,0,0,.3); z-index: 30; }
+#page-accounts .acc-tb-menu[hidden] { display: none; }
+#page-accounts .acc-tb-menu button { display: block; width: 100%; text-align: left; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+#page-accounts .acc-tb-menu button:hover { background: var(--bg-sunk); color: var(--ink); }
+/* Card fills remaining height; the table scrolls inside (transactions-style fixed box) */
+#page-accounts .acc-grid-card { padding: 0; overflow: hidden; flex: 0 1 auto; max-height: 50vh; min-height: 0; display: flex; flex-direction: column; }
+#page-accounts #acc-grid { flex: 1; min-height: 0; overflow: auto; }
+/* Read-only transfers table (fills the space under the account grid) */
+#page-accounts .acc-tfr-card { padding: 0; overflow: hidden; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+#page-accounts .acc-tfr-head { display: flex; align-items: baseline; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line-2); }
+#page-accounts .acc-tfr-head h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink); }
+#page-accounts .acc-tfr-head #acc-tfr-sub { color: var(--ink-3); font-size: 12.5px; }
+#page-accounts .acc-tfr-wrap { flex: 1; min-height: 0; overflow: auto; }
+#page-accounts .acc-tfr-empty { padding: 28px 18px; color: var(--ink-4); font-size: 13px; }
+#page-accounts table.acc-tfr-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+#page-accounts .acc-tfr-table thead th { position: sticky; top: 0; z-index: 2; background: var(--bg-elev); height: 40px; text-align: left; padding: 0 18px; color: var(--ink-3); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--line); }
+#page-accounts .acc-tfr-table .acc-tfr-amth { text-align: right; }
+#page-accounts .acc-tfr-row td { height: 44px; padding: 0 18px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+#page-accounts .acc-tfr-row:hover td { background: color-mix(in oklch, var(--bg-sunk) 36%, transparent); }
+#page-accounts .acc-tfr-merch strong { font-size: 13.5px; font-weight: 650; color: var(--ink); }
+#page-accounts .acc-tfr-route { color: var(--ink-2); font-size: 12.5px; white-space: nowrap; }
+#page-accounts .acc-tfr-route .acc-tfr-arrow { margin: 0 8px; color: var(--ink-4); }
+#page-accounts .acc-tfr-date { color: var(--ink-2); font-size: 12.5px; white-space: nowrap; }
+#page-accounts .acc-tfr-amt { text-align: right; font-family: "IBM Plex Mono", monospace; font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; color: color-mix(in oklch, var(--accent) 80%, var(--ink)); }
+#page-accounts .acc-panel { position: static; top: auto; min-height: 0; max-height: 100%; overflow-y: auto; }
+/* table */
+#page-accounts table.acc-bal-grid { display: table; table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0; }
+#page-accounts .acc-bal-grid th, #page-accounts .acc-bal-grid td { padding: 0; }
+#page-accounts .acc-bal-grid thead th { position: sticky; top: 0; z-index: 3; height: 42px; vertical-align: middle; background: var(--bg-elev); color: var(--ink-3); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--line); }
+#page-accounts .acc-g-corner { width: 300px; min-width: 240px; text-align: left; padding: 0 18px; position: sticky; left: 0; z-index: 5; background: var(--bg-elev); }
+/* edit-mode account row: drag handle · editable name · trash */
+#page-accounts #acc-grid.acc-editing .acc-g-namecell { gap: 8px; }
+#page-accounts .acc-g-namecell .drag-handle { flex: 0 0 auto; margin-right: 2px; }
+#page-accounts .acc-g-rename { flex: 1; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; font-weight: 650; outline: none; }
+#page-accounts .acc-g-rename:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 24%, transparent); }
+#page-accounts .acc-g-trash { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--ink-3); cursor: pointer; }
+#page-accounts .acc-g-trash:hover { background: var(--neg-soft); color: var(--neg); }
+#page-accounts .acc-g-typedel { margin-left: 8px; width: 16px; height: 16px; border: 0; border-radius: 5px; background: transparent; color: var(--ink-4); font-size: 13px; line-height: 1; cursor: pointer; vertical-align: middle; }
+#page-accounts .acc-g-typedel:hover { background: var(--neg-soft); color: var(--neg); }
+/* drag feedback */
+#page-accounts .acc-g-grouplabel .drag-handle { display: inline-flex; vertical-align: middle; margin-right: 8px; }
+/* account note under the name (read mode) */
+#page-accounts .acc-g-nametext small { display: block; margin-top: 2px; color: var(--ink-3); font-size: 11px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* edit mode: stacked name + note inputs */
+#page-accounts .acc-g-nameedit { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+#page-accounts .acc-g-note { height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink-3); font: inherit; font-size: 11px; outline: none; }
+#page-accounts .acc-g-note:focus { border-color: var(--accent); color: var(--ink); }
+/* edit mode: editable type-name in the subheading */
+#page-accounts .acc-g-typename { height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink-2); font: inherit; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; outline: none; vertical-align: middle; }
+#page-accounts .acc-g-typename:focus { border-color: var(--accent); color: var(--ink); }
+#page-accounts .acc-g-row.acc-dragging, #page-accounts .acc-g-group.acc-dragging { opacity: .45; }
+#page-accounts .acc-g-row.acc-drop-into .acc-g-name, #page-accounts .acc-g-row.acc-drop-into td { box-shadow: inset 0 -2px 0 var(--accent); }
+#page-accounts .acc-g-group.acc-drop-into td { background: color-mix(in oklch, var(--accent) 16%, transparent); }
+#page-accounts .acc-g-typehead { width: 118px; text-align: left; padding: 0 14px; }
+#page-accounts .acc-g-acthead { width: 44px; }
+/* gutters that must beat the blanket `.acc-bal-grid th,td { padding:0 }` (header text cells +
+   type cells align with the body name/type content at the same 18px / 14px inset) */
+#page-accounts .acc-bal-grid .acc-g-corner { padding: 0 18px; }
+#page-accounts .acc-bal-grid .acc-g-typehead,
+#page-accounts .acc-bal-grid .acc-g-type { padding: 0 14px; }
+#page-accounts .acc-bal-grid .acc-g-totallabel { padding: 0 18px; }
+#page-accounts .acc-g-month { position: relative; text-align: center; padding: 0 8px; }
+#page-accounts .acc-g-mhead { display: flex; align-items: center; justify-content: center; gap: 6px; }
+#page-accounts .acc-g-mlabel { font-variant-numeric: tabular-nums; }
+#page-accounts .acc-g-mdel { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; display: grid; place-items: center; border: 0; border-radius: 5px; background: transparent; color: var(--ink-4); font-size: 13px; cursor: pointer; opacity: 0; transition: opacity .12s; }
+#page-accounts .acc-g-month:hover .acc-g-mdel { opacity: 1; }
+#page-accounts .acc-g-mdel:hover { background: var(--neg-soft); color: var(--neg); }
+#page-accounts .acc-g-month.active, #page-accounts .acc-g-cell.active, #page-accounts .acc-g-total.active { background: color-mix(in oklch, var(--accent) 7%, transparent); }
+/* group rows */
+#page-accounts .acc-g-group td { position: sticky; left: 0; padding: 8px 18px 6px; background: color-mix(in oklch, var(--bg-sunk) 45%, var(--bg-elev)); color: var(--ink-3); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--line-2); }
+/* name col sticky */
+#page-accounts .acc-g-name { position: sticky; left: 0; z-index: 2; background: var(--bg-elev); border-bottom: 1px solid var(--line-2); }
+#page-accounts .acc-g-row:hover .acc-g-name, #page-accounts .acc-g-row.selected .acc-g-name { background: color-mix(in oklch, var(--bg-sunk) 60%, var(--bg-elev)); }
+#page-accounts .acc-g-namecell { display: flex; align-items: center; gap: 11px; width: 100%; min-width: 200px; padding: 8px 18px; color: var(--ink); text-align: left; }
+#page-accounts .acc-g-ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; color: var(--ink); flex: 0 0 auto; }
+#page-accounts .acc-g-nametext { min-width: 0; }
+#page-accounts .acc-g-nametext strong { display: block; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#page-accounts .acc-g-type { padding: 0 14px; color: var(--ink-3); font-size: 12px; text-align: left; border-bottom: 1px solid var(--line-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#page-accounts .acc-g-row:hover td, #page-accounts .acc-g-row.selected td { background: color-mix(in oklch, var(--bg-sunk) 30%, transparent); }
+/* cells: compact centered input pills (~6 digits) */
+#page-accounts .acc-g-cell { padding: 5px 8px; text-align: center; border-bottom: 1px solid var(--line-2); }
+#page-accounts .acc-g-input { width: 110px; max-width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 12.5px; font-weight: 600; text-align: center; outline: none; transition: border-color .12s, box-shadow .12s; }
+#page-accounts .acc-g-input:hover { border-color: var(--ink-4); }
+#page-accounts .acc-g-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 26%, transparent); background: var(--bg-elev); }
+/* actions */
+#page-accounts .acc-g-actions { text-align: center; border-bottom: 1px solid var(--line-2); }
+#page-accounts .acc-g-menu { width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-3); font-size: 16px; cursor: pointer; }
+#page-accounts .acc-g-menu:hover { background: var(--bg-sunk); color: var(--ink); }
+/* month-window nav arrows + 6M sparkline column */
+#page-accounts .acc-g-nav { width: 30px; text-align: center; }
+#page-accounts td.acc-g-nav { border-bottom: 1px solid var(--line-2); }
+/* vertical separators flanking the month block (months · ‹ › between the lines) */
+#page-accounts .acc-g-navl { border-left: 1px solid var(--line); }
+#page-accounts .acc-g-navr { border-right: 1px solid var(--line); }
+#page-accounts .acc-g-navbtn { width: 26px; height: 30px; display: inline-grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font-size: 20px; line-height: 1; cursor: pointer; transition: background .12s, color .12s; }
+#page-accounts .acc-g-navbtn:hover:not(:disabled) { background: var(--bg-sunk); color: var(--ink); }
+#page-accounts .acc-g-navbtn:disabled { opacity: .25; cursor: default; }
+#page-accounts .acc-g-sparkhead { width: 162px; text-align: center; padding-left: 28px; }
+#page-accounts .acc-g-spark { text-align: center; padding: 0 12px 0 30px; border-bottom: 1px solid var(--line-2); }
+#page-accounts .acc-g-spark svg { display: inline-block; vertical-align: middle; }
+/* current-month accent highlight — tint only */
+#page-accounts .acc-g-curmonth { background: color-mix(in oklch, var(--accent) 12%, transparent); }
+/* Edit toggle mirrors Transactions: red while active */
+#page-accounts .acc-edit-toggle.editing { background: var(--neg); border-color: var(--neg); color: #fff; }
+#page-accounts .acc-edit-toggle.editing:hover { background: var(--neg); filter: brightness(1.06); }
+/* edit mode: rows become selectable */
+#page-accounts #acc-grid.acc-editing .acc-g-row { cursor: pointer; }
+#page-accounts #acc-grid.acc-editing .acc-g-row:hover .acc-g-name,
+#page-accounts #acc-grid.acc-editing .acc-g-row:hover td { background: color-mix(in oklch, var(--bg-sunk) 50%, transparent); }
+#page-accounts .acc-g-row.selected .acc-g-name,
+#page-accounts .acc-g-row.selected td { background: color-mix(in oklch, var(--accent) 15%, transparent) !important; }
+/* edit-mode bottom bar (uses .bulk-bar base) */
+.acc-edit-bar .acc-eb-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.acc-edit-bar .acc-eb-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+#page-accounts .acc-g-blank { border-bottom: 1px solid var(--line-2); }
+/* total row (sticky bottom) */
+#page-accounts .acc-g-totalrow td, #page-accounts .acc-g-totalrow th { position: sticky; bottom: 0; border-top: 2px solid var(--line); background: color-mix(in oklch, var(--bg-sunk) 55%, var(--bg-elev)); }
+#page-accounts .acc-g-totalrow .acc-g-name { z-index: 4; }
+#page-accounts .acc-g-totallabel { padding: 0 18px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+#page-accounts .acc-g-total { height: 44px; padding: 0 8px; text-align: center; font-family: "IBM Plex Mono", monospace; font-weight: 800; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+/* empty state */
+#page-accounts .acc-g-empty { text-align: center; padding: 40px 20px 48px; }
+#page-accounts .acc-g-empty h3 { margin: 0 0 6px; font-size: 16px; }
+#page-accounts .acc-g-empty p { margin: 0; color: var(--ink-3); font-size: 13px; }
+/* popovers (add month / add account / row menu) */
+.acc-pop { z-index: 60; width: 230px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); box-shadow: 0 22px 50px rgba(0,0,0,.34); }
+.acc-pop label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin-bottom: 6px; }
+.acc-pop label.acc-pop-l2 { margin-top: 12px; }
+.acc-pop input, .acc-pop select { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; outline: none; }
+.acc-pop input:focus, .acc-pop select:focus { border-color: var(--accent); }
+.acc-pop-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.acc-pop-cancel { height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; cursor: pointer; }
+.acc-pop-add { height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-fg); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.acc-menu-pop { width: auto; min-width: 160px; padding: 6px; }
+.acc-pop-item { display: block; width: 100%; text-align: left; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.acc-pop-item:hover { background: var(--bg-sunk); }
+.acc-pop-item.danger { color: var(--neg); }
+.acc-pop-item.danger:hover { background: var(--neg-soft); }
 .acc-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .acc-modal-head h3 { margin: 0; }
 .acc-modal-head p { margin: 5px 0 0; color: var(--ink-3); font-size: 12.5px; }

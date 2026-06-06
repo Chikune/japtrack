@@ -59,7 +59,7 @@ function _switchPageNow(name) {
   // Hide the topbar Add button where it doesn't apply: Forecast has its own
   // header add button, and Reports/insights is a read-only dashboard.
   const topAddDiv = document.querySelector(".top-add");
-  if (topAddDiv) topAddDiv.style.display = (name === "home" || name === "forecast" || name === "insights" || name === "settings" || name === "goals" || name === "help") ? "none" : "";
+  if (topAddDiv) topAddDiv.style.display = (name === "home" || name === "forecast" || name === "insights" || name === "settings" || name === "goals" || name === "help" || name === "accounts" || name === "networth") ? "none" : "";
   // Sidebar highlight: tx sub-pages (expenses/income/transfers) all map back to the
   // "transactions" sidebar item, since they're tabs within that one page.
   const sidebarPage = (TX_PAGE_TYPES[name] && name !== "transactions") ? "transactions" : name;

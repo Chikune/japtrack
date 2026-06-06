@@ -69,8 +69,11 @@ function _accType(catId, value) {
 }
 
 function _accSection(catId, value) {
+  // explicit user classification wins
+  const ov = (typeof getSettings === "function" ? getSettings().acctSection : null) || {};
+  if (ov[catId] && ["assets", "cash", "other"].includes(ov[catId])) return ov[catId];
   const text = `${catId} ${typeof getAcctNote === "function" ? getAcctNote(catId) : ""}`;
-  if (value < 0 || /credit|loan|debt|overdraft|amex/i.test(text)) return "debt";
+  if (value < 0 || /credit|loan|debt|overdraft|amex/i.test(text)) return "other";
   if (/cash|other/i.test(text)) return "cash";
   return "assets";
 }
@@ -103,11 +106,34 @@ function _accTrend(catId, count = 7) {
 }
 
 function renderAccountsTab() {
-  const entries = nwSnapshotsSorted();
-  if (_accViewIdx !== null && _accViewIdx >= entries.length) _accViewIdx = null;
-  renderAccSummary(entries);
-  renderAccList(entries);
-  renderAccSnapBar(entries);
+  renderAccGrid();
+  renderAccTransfers();
+}
+
+// Read-only list of transfer transactions (money moved between Balances accounts).
+function renderAccTransfers() {
+  const wrap = document.getElementById("acc-transfers");
+  if (!wrap) return;
+  const sub = document.getElementById("acc-tfr-sub");
+  const tfrs = (typeof getTxns === "function" ? getTxns() : [])
+    .filter(t => normType(t) === "transfer")
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  if (sub) sub.textContent = tfrs.length ? `${tfrs.length} transfer${tfrs.length === 1 ? "" : "s"}` : "";
+  if (!tfrs.length) {
+    wrap.innerHTML = `<div class="acc-tfr-empty">No transfers yet — transfers you add in Transactions appear here.</div>`;
+    return;
+  }
+  const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—";
+  const rows = tfrs.map(t => `<tr class="acc-tfr-row">
+      <td class="acc-tfr-merch"><strong>${_accEsc(t.description || "Transfer")}</strong></td>
+      <td class="acc-tfr-route"><span>${_accEsc(t.fromAccount || "—")}</span><span class="acc-tfr-arrow">→</span><span>${_accEsc(t.toAccount || "—")}</span></td>
+      <td class="acc-tfr-date">${fmtDate(t.date)}</td>
+      <td class="acc-tfr-amt num blur">${fmtGBP(Math.abs(Number(t.amount) || 0), { dp: 2 })}</td>
+    </tr>`).join("");
+  wrap.innerHTML = `<table class="acc-tfr-table">
+    <thead><tr><th>Transfer</th><th>From → To</th><th>Date</th><th class="acc-tfr-amth">Amount</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function renderAccSummary() {
@@ -170,69 +196,462 @@ function renderAccSummary() {
   }
 }
 
-function renderAccList() {
-  const list = document.getElementById("acc-list");
-  const sub = document.getElementById("acc-list-sub");
-  const entry = _accEntry();
-  const prev = _accPrevEntry();
-  if (!list) return;
+// Short month label: "May 2026" -> "May 26"
+function _accMonthShort(month) {
+  const d = new Date(monthToTime(month));
+  return `${MONTHS[d.getMonth()].slice(0, 3)} ${String(d.getFullYear()).slice(2)}`;
+}
+const _accEsc = s => (s || "").replace(/"/g, "&quot;");
 
-  if (!entry) {
-    list.innerHTML = `<div class="page-stub"><h3>No accounts yet</h3><div>Use Add Snapshot to record account balances.</div></div>`;
-    if (sub) sub.textContent = "No snapshots yet";
-    closeAccPanel();
-    return;
+// ===== Editable balances grid: draft state + batched "Save changes" =====
+let _accDraft = null;     // [{ month, locked, vals:{ [catId]: number } }] (chronological)
+let _accBuckets = null;   // [{ id, color, type }]
+let _accDirty = false;
+const ACC_PALETTE = ["var(--c-current)", "var(--c-savings)", "var(--c-lisa)", "var(--c-ssisa)", "var(--c-other)", "var(--accent)", "var(--pos)", "var(--warn)"];
+const ACC_WIN = 4;           // months shown per window
+let _accMonthPage = null;    // 0-based window index; null = default to latest
+let _accEditMode = false;    // account-edit mode (toolbar Edit button)
+let _accSelected = null;     // (legacy) selected account id
+let _accTypes = [];          // ordered type subheadings (draft)
+function _accPageCount() { return Math.max(1, Math.ceil((_accDraft?.length || 0) / ACC_WIN)); }
+
+function _accBucketType(id) {
+  const note = (typeof getAcctNote === "function" ? getAcctNote(id) : "") || "";
+  return note || _accType(id, 0);
+}
+
+function _accMonthKeyNum(monthStr) { const d = new Date(monthToTime(monthStr)); return d.getFullYear() * 12 + d.getMonth(); }
+function _accCurKey() { const n = new Date(); return n.getFullYear() * 12 + n.getMonth(); }
+
+// Build the draft as a CONTINUOUS, chronological run of calendar months (Jan–Dec of every year
+// from the earliest data year through the current year). No manual "Add month" — months just
+// exist; existing snapshot values are merged in, empty months are £0 and editable.
+function _accInitDraft() {
+  const entries = nwSnapshotsSorted();
+  const memo = (typeof getSettings === "function" ? getSettings().acctMemo : null) || {};
+  _accBuckets = NW_CATS.map(c => ({ id: c.id, color: c.color, type: _accBucketType(c.id), note: memo[c.id] || "" }));
+  // Type subheadings (ordered): saved list, else the distinct types of existing accounts.
+  const saved = (typeof getSettings === "function" ? getSettings().acctTypes : null);
+  _accTypes = (Array.isArray(saved) && saved.length) ? saved.slice() : [];
+  _accBuckets.forEach(b => { if (b.type && !_accTypes.includes(b.type)) _accTypes.push(b.type); });
+  const now = new Date();
+  let minY = Math.min(2025, now.getFullYear()), maxY = now.getFullYear();  // always editable back to Jan 2025
+  const byKey = {};
+  entries.forEach(e => { const d = new Date(monthToTime(e.month)); minY = Math.min(minY, d.getFullYear()); maxY = Math.max(maxY, d.getFullYear()); byKey[d.getFullYear() * 12 + d.getMonth()] = e; });
+  _accDraft = [];
+  for (let y = minY; y <= maxY; y++) {
+    for (let m = 0; m < 12; m++) {
+      const snap = byKey[y * 12 + m];
+      const vals = {};
+      _accBuckets.forEach(b => { vals[b.id] = snap ? _accValue(snap, b.id) : 0; });
+      _accDraft.push({ month: `${MONTHS[m]} ${y}`, locked: snap ? !!snap.locked : false, vals });
+    }
   }
+  _accDirty = false;
+}
 
-  const rows = _accRows(entry, prev);
-  if (sub) sub.textContent = `${rows.length} account${rows.length === 1 ? "" : "s"} in ${entry.month}`;
-  if (!rows.length) {
-    list.innerHTML = `<div class="page-stub acc-empty"><h3>No balances recorded</h3><div>Add balances to this snapshot to start tracking accounts.</div></div>`;
-    closeAccPanel();
-    return;
+function _accDraftTotal(row) {
+  return _accBuckets.reduce((s, b) => s + (Number(row.vals[b.id]) || 0), 0);
+}
+function _accSetDirty() { _accDirty = true; document.getElementById("acc-bal-actions")?.classList.add("dirty"); document.getElementById("acc-save")?.removeAttribute("disabled"); document.getElementById("acc-save-caret")?.removeAttribute("disabled"); }
+
+function _accActionsHTML() {
+  return `<span class="acc-tb-dirty"><span class="dot"></span>Unsaved changes</span>
+      <div class="acc-tb-save">
+        <button class="acc-tb-savebtn" id="acc-save"${_accDirty ? "" : " disabled"}>Save changes</button>
+        <button class="acc-tb-savecaret" id="acc-save-caret"${_accDirty ? "" : " disabled"} aria-label="More options">▾</button>
+        <div class="acc-tb-menu" id="acc-save-menu" hidden><button id="acc-discard">Discard changes</button></div>
+      </div>`;
+}
+function _accLeftHTML() {
+  return `<button class="acc-tb-btn" id="acc-add-account"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>Add account</button>
+    <button class="acc-tb-btn" id="acc-add-type"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="13" y2="18"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>Add type</button>
+    <button class="acc-tb-btn acc-edit-toggle${_accEditMode ? " editing" : ""}" id="acc-edit-toggle" aria-pressed="${_accEditMode}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>Edit</button>`;
+}
+
+// Data-entry table (mirrors Transactions): accounts × a 4-month window + frozen sparkline.
+function renderAccGrid() {
+  const wrap = document.getElementById("acc-grid");
+  const left = document.getElementById("acc-bal-left");
+  const actions = document.getElementById("acc-bal-actions");
+  if (!wrap) return;
+  if (!_accDirty || !_accDraft) _accInitDraft();
+  const months = _accDraft, buckets = _accBuckets;
+
+  if (left) left.innerHTML = _accLeftHTML();
+  if (actions) { actions.innerHTML = _accActionsHTML(); actions.classList.toggle("dirty", _accDirty); }
+  _accWireToolbar();
+
+  if (!months.length) { wrap.innerHTML = `<div class="acc-g-empty"><h3>No accounts yet</h3></div>`; return; }
+
+  // 4-month window; default to the window holding the current month.
+  const pageCount = _accPageCount();
+  if (_accMonthPage == null) {
+    const ck = _accCurKey();
+    let idx = months.findIndex(m => _accMonthKeyNum(m.month) === ck);
+    if (idx < 0) idx = months.length - 1;
+    _accMonthPage = Math.floor(idx / ACC_WIN);
   }
+  if (_accMonthPage > pageCount - 1) _accMonthPage = pageCount - 1;
+  if (_accMonthPage < 0) _accMonthPage = 0;
+  const start = _accMonthPage * ACC_WIN;
+  const win = []; for (let i = 0; i < ACC_WIN; i++) win.push(months[start + i] || null);
 
-  const grouped = {
-    assets: rows.filter(r => r.section === "assets").sort((a, b) => b.value - a.value),
-    debt: rows.filter(r => r.section === "debt").sort((a, b) => a.value - b.value),
-    cash: rows.filter(r => r.section === "cash").sort((a, b) => b.value - a.value),
-  };
-  const labels = { assets: "Assets", debt: "Debt", cash: "Cash" };
+  // 6M sparkline series = the last 6 months up to (and including) the current month
+  const ck = _accCurKey();
+  const upto = months.filter(m => _accMonthKeyNum(m.month) <= ck);
+  const sparkBase = (upto.length ? upto : months).slice(-6);
+  const refMonth = sparkBase[sparkBase.length - 1] || months[months.length - 1];
 
-  const rowHtml = row => {
-    const c = row.cat;
-    const status = _accStatus(row);
-    const trendVals = _accTrend(c.id);
-    const trendCol = row.delta < 0 || row.value < 0 ? "var(--neg)" : "var(--pos)";
-    const trend = sparkline(trendVals, { w: 104, h: 28, stroke: trendCol, strokeWidth: 1.6 }) || `<span class="acc-muted">—</span>`;
-    const deltaText = row.delta === 0 ? "—" : `${row.delta > 0 ? "+" : "-"}${fmtGBP(Math.abs(row.delta), { dp: 0 })}`;
-    const icon = ACC_ICONS[c.id] || c.id.trim()[0]?.toUpperCase() || "?";
-    return `<button class="acc-list-row${_accSelectedCat === c.id ? " selected" : ""}" data-cat-id="${c.id.replace(/"/g, "&quot;")}">
-      <span class="acc-list-ic" style="background:color-mix(in oklch,${c.color} 50%,transparent)">${icon}</span>
-      <span class="acc-account-cell">
-        <strong>${c.id}</strong>
-        <small>${row.type}</small>
-      </span>
-      <span class="num blur acc-row-amount${row.value < 0 ? " neg" : ""}">${fmtGBP(row.value, { dp: 0 })}</span>
-      <span class="num blur acc-row-delta${row.delta > 0 ? " pos" : row.delta < 0 ? " neg" : ""}">${deltaText}</span>
-      <span class="acc-row-trend">${trend}</span>
-      <span class="acc-status ${status.tone}">${status.label}</span>
-      <span class="acc-row-arrow" aria-hidden="true">›</span>
-    </button>`;
-  };
+  // ensure every account's type has a subheading
+  buckets.forEach(b => { if (b.type && !_accTypes.includes(b.type)) _accTypes.push(b.type); });
+  const typesToShow = _accTypes.length ? _accTypes : ["Accounts"];
 
-  list.innerHTML = Object.keys(grouped).map(key => {
-    if (!grouped[key].length) return "";
-    return `<div class="acc-section-head">${labels[key]}</div>${grouped[key].map(rowHtml).join("")}`;
+  const colCount = 8; // account, navL, 4 months, navR, spark
+  const navL = `<th class="acc-g-nav acc-g-navl"><button class="acc-g-navbtn" id="acc-m-prev"${_accMonthPage <= 0 ? " disabled" : ""} aria-label="Earlier months">‹</button></th>`;
+  const navR = `<th class="acc-g-nav acc-g-navr"><button class="acc-g-navbtn" id="acc-m-next"${_accMonthPage >= pageCount - 1 ? " disabled" : ""} aria-label="Later months">›</button></th>`;
+  const monthHead = win.map(m => {
+    if (!m) return `<th class="acc-g-month acc-g-blank"></th>`;
+    const cur = _accMonthKeyNum(m.month) === ck ? " acc-g-curmonth" : "";
+    return `<th class="acc-g-month${cur}"><span class="acc-g-mlabel">${_accMonthShort(m.month)}</span></th>`;
   }).join("");
+  const TRASH_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
 
-  list.querySelectorAll(".acc-list-row[data-cat-id]").forEach(row => {
-    row.addEventListener("click", () => openAccPanel(row.dataset.catId));
+  let body = "";
+  typesToShow.forEach(type => {
+    const inType = buckets.filter(b => (b.type || "") === type);
+    const del = (_accEditMode && !inType.length) ? `<button class="acc-g-typedel" data-type="${_accEsc(type)}" title="Remove type">×</button>` : "";
+    const thandle = _accEditMode ? (typeof DRAG_HANDLE_SVG !== "undefined" ? DRAG_HANDLE_SVG : "<span class='drag-handle'>⠿</span>") : "";
+    const typeLabel = _accEditMode ? `<input class="acc-g-typename" data-type="${_accEsc(type)}" value="${_accEsc(type)}" aria-label="Type name">` : type;
+    body += `<tr class="acc-g-group" data-type="${_accEsc(type)}"><td class="acc-g-grouplabel" colspan="${colCount}">${thandle}${typeLabel}${del}</td></tr>`;
+    inType.forEach(b => {
+      const icon = ACC_ICONS[b.id] || b.id.trim()[0]?.toUpperCase() || "?";
+      const cells = win.map((m, i) => {
+        if (!m) return `<td class="acc-g-cell acc-g-blank"></td>`;
+        const cur = _accMonthKeyNum(m.month) === ck ? " acc-g-curmonth" : "";
+        return `<td class="acc-g-cell${cur}"><input class="acc-g-input" inputmode="decimal" data-cat="${_accEsc(b.id)}" data-idx="${start + i}" value="${fmtGBP(Number(m.vals[b.id]) || 0, { dp: 2 })}" aria-label="${_accEsc(b.id)} ${_accEsc(m.month)}"></td>`;
+      }).join("");
+      const series = sparkBase.map(mm => Number(mm.vals[b.id]) || 0);
+      const sCol = (series[series.length - 1] || 0) < (series[0] || 0) ? "var(--neg)" : "var(--pos)";
+      const spark = (typeof sparkline === "function" ? sparkline(series, { w: 112, h: 26, stroke: sCol, strokeWidth: 1.6 }) : "") || `<span class="acc-muted">—</span>`;
+      const nameInner = _accEditMode
+        ? `${(typeof DRAG_HANDLE_SVG !== "undefined" ? DRAG_HANDLE_SVG : "<span class='drag-handle'>⠿</span>")}<div class="acc-g-nameedit"><input class="acc-g-rename" data-acct="${_accEsc(b.id)}" value="${_accEsc(b.id)}" aria-label="Account name"><input class="acc-g-note" data-acct="${_accEsc(b.id)}" value="${_accEsc(b.note || "")}" placeholder="Add a note…" aria-label="Account note"></div>`
+        : `<span class="acc-g-ic" style="background:color-mix(in oklch,${b.color} 50%,transparent)">${icon}</span><span class="acc-g-nametext"><strong>${b.id}</strong>${b.note ? `<small>${_accEsc(b.note)}</small>` : ""}</span>`;
+      const endCell = _accEditMode ? `<button class="acc-g-trash" data-acct="${_accEsc(b.id)}" title="Delete account">${TRASH_SVG}</button>` : spark;
+      body += `<tr class="acc-g-row" data-cat="${_accEsc(b.id)}" data-type="${_accEsc(type)}">
+        <th class="acc-g-name" scope="row"><div class="acc-g-namecell">${nameInner}</div></th>
+        <td class="acc-g-nav acc-g-navl"></td>${cells}<td class="acc-g-nav acc-g-navr"></td>
+        <td class="acc-g-spark">${endCell}</td>
+      </tr>`;
+    });
   });
 
-  const visibleIds = rows.map(r => r.cat.id);
-  if (!_accSelectedCat || !visibleIds.includes(_accSelectedCat)) _accSelectedCat = rows[0].cat.id;
-  openAccPanel(_accSelectedCat);
+  const totalCells = win.map((m, i) => {
+    if (!m) return `<td class="acc-g-total acc-g-blank"></td>`;
+    const cur = _accMonthKeyNum(m.month) === ck ? " acc-g-curmonth" : "";
+    return `<td class="acc-g-total${cur}" data-total-idx="${start + i}">${fmtGBP(_accDraftTotal(m), { dp: 0 })}</td>`;
+  }).join("");
+  const totalRow = `<tr class="acc-g-totalrow"><th class="acc-g-name acc-g-totallabel" scope="row">Total</th><td class="acc-g-nav acc-g-navl"></td>${totalCells}<td class="acc-g-nav acc-g-navr"></td><td></td></tr>`;
+
+  wrap.innerHTML = `<table class="acc-bal-grid">
+    <thead><tr><th class="acc-g-corner">Account</th>${navL}${monthHead}${navR}<th class="acc-g-sparkhead">6M</th></tr></thead>
+    <tbody>${body}${totalRow}</tbody>
+  </table>`;
+  wrap.classList.toggle("acc-editing", _accEditMode);
+
+  wrap.querySelectorAll(".acc-g-input").forEach(inp => {
+    const idx = () => Number(inp.dataset.idx), cat = inp.dataset.cat;
+    inp.addEventListener("focus", () => { const v = Number(_accDraft[idx()].vals[cat]) || 0; inp.value = v ? String(v) : ""; inp.select?.(); });
+    inp.addEventListener("input", () => { _accDraft[idx()].vals[cat] = parseFloat(inp.value.replace(/[^0-9.\-]/g, "")) || 0; _accSetDirty(); _accLiveRecalc(); });
+    inp.addEventListener("blur", () => { inp.value = fmtGBP(Number(_accDraft[idx()].vals[cat]) || 0, { dp: 2 }); });
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+  });
+  wrap.querySelectorAll(".acc-g-rename").forEach(inp => {
+    const oldId = inp.dataset.acct;
+    inp.addEventListener("click", e => e.stopPropagation());
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+    inp.addEventListener("change", () => { const v = inp.value.trim(); if (v && v !== oldId) _accRenameInline(oldId, v); else inp.value = oldId; });
+  });
+  wrap.querySelectorAll(".acc-g-note").forEach(inp => {
+    const id = inp.dataset.acct;
+    inp.addEventListener("click", e => e.stopPropagation());
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+    inp.addEventListener("input", () => { const b = _accBucket(id); if (b) { b.note = inp.value; _accSetDirty(); } });
+  });
+  wrap.querySelectorAll(".acc-g-typename").forEach(inp => {
+    const old = inp.dataset.type;
+    inp.addEventListener("click", e => e.stopPropagation());
+    inp.addEventListener("pointerdown", e => e.stopPropagation());
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+    inp.addEventListener("change", () => { const v = inp.value.trim(); if (v && v !== old) _accRenameType(old, v); else inp.value = old; });
+  });
+  wrap.querySelectorAll(".acc-g-trash").forEach(btn => btn.addEventListener("click", e => { e.stopPropagation(); _accDeleteAccount(btn.dataset.acct); }));
+  wrap.querySelectorAll(".acc-g-typedel").forEach(btn => btn.addEventListener("click", e => { e.stopPropagation(); _accDeleteType(btn.dataset.type); }));
+  if (_accEditMode) { _accWireAcctDnD(wrap); _accWireTypeDnD(wrap); }
+  document.getElementById("acc-m-prev")?.addEventListener("click", () => { if (_accMonthPage > 0) { _accMonthPage--; renderAccGrid(); } });
+  document.getElementById("acc-m-next")?.addEventListener("click", () => { if (_accMonthPage < _accPageCount() - 1) { _accMonthPage++; renderAccGrid(); } });
+}
+
+// Live-update the visible window's Total cells from the draft (no rebuild → focus preserved).
+function _accLiveRecalc() {
+  const wrap = document.getElementById("acc-grid");
+  if (!wrap || !_accDraft) return;
+  wrap.querySelectorAll(".acc-g-total[data-total-idx]").forEach(td => {
+    const i = Number(td.dataset.totalIdx);
+    if (_accDraft[i]) td.textContent = fmtGBP(_accDraftTotal(_accDraft[i]), { dp: 0 });
+  });
+}
+
+function _accWireToolbar() {
+  document.getElementById("acc-add-account")?.addEventListener("click", e => _accAddAccountPop(e.currentTarget));
+  document.getElementById("acc-add-type")?.addEventListener("click", e => _accAddTypePop(e.currentTarget));
+  document.getElementById("acc-edit-toggle")?.addEventListener("click", toggleAccEditMode);
+  document.getElementById("acc-save")?.addEventListener("click", saveAccChanges);
+  const menu = document.getElementById("acc-save-menu");
+  document.getElementById("acc-save-caret")?.addEventListener("click", e => { e.stopPropagation(); if (menu) menu.hidden = !menu.hidden; });
+  document.getElementById("acc-discard")?.addEventListener("click", () => { if (menu) menu.hidden = true; _accDiscard(); });
+}
+
+function saveAccChanges() {
+  if (!_accDirty) return;
+  const s = getSettings();
+  s.nwBuckets = _accBuckets.map(b => ({ id: b.id, color: b.color }));
+  s.acctNotes = s.acctNotes || {};
+  s.acctMemo = s.acctMemo || {};
+  _accBuckets.forEach(b => {
+    if (b.type) s.acctNotes[b.id] = b.type;
+    if (b.note) s.acctMemo[b.id] = b.note; else delete s.acctMemo[b.id];
+  });
+  s.acctTypes = _accTypes.slice();
+  lsSet("fin_settings", s);
+  if (typeof rebuildNWCats === "function") rebuildNWCats();
+  // Persist only months that actually have a balance (auto-generated empty months aren't saved).
+  const entries = _accDraft
+    .filter(m => _accBuckets.some(b => Math.abs(Number(m.vals[b.id]) || 0) > 0.005))
+    .map(m => ({
+      month: m.month,
+      allocations: _accBuckets.map(b => ({ cat: b.id, value: Number(m.vals[b.id]) || 0 })),
+      locked: !!m.locked,
+    }));
+  lsSet("fin_nw_entries", entries);
+  _accDirty = false;
+  showToast("Balances saved");
+  renderAll();
+}
+
+function _accDiscard() { _accInitDraft(); renderAccountsTab(); }
+
+function _accDeleteMonth(i) {
+  const m = _accDraft[i];
+  if (!m) return;
+  const go = () => { _accDraft.splice(i, 1); _accSetDirty(); renderAccGrid(); };
+  if (typeof confirmDialog === "function") {
+    confirmDialog({ title: "Delete month?", message: `Remove the ${m.month} column? It is applied when you Save changes.`, confirmLabel: "Delete", cancelLabel: "Cancel", danger: true }, go);
+  } else { go(); }
+}
+
+// ── Popovers (Add month / Add account / account ⋮ menu) ──
+function _accClosePops() {
+  document.getElementById("acc-pop")?.remove();
+  document.removeEventListener("mousedown", _accPopOutside);
+  const menu = document.getElementById("acc-save-menu"); if (menu) menu.hidden = true;
+}
+function _accPopOutside(e) { const pop = document.getElementById("acc-pop"); if (pop && !pop.contains(e.target)) _accClosePops(); }
+function _accMountPop(pop, anchor) {
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  pop.style.position = "fixed";
+  pop.style.top = `${r.bottom + 6}px`;
+  pop.style.left = `${Math.max(12, Math.min(r.left, window.innerWidth - pop.offsetWidth - 12))}px`;
+  setTimeout(() => document.addEventListener("mousedown", _accPopOutside), 0);
+}
+function _accAddMonthPop(anchor) {
+  _accClosePops();
+  let def;
+  if (_accDraft.length) { const d = new Date(monthToTime(_accDraft[_accDraft.length - 1].month)); d.setMonth(d.getMonth() + 1); def = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
+  else { const n = new Date(); def = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`; }
+  const pop = document.createElement("div");
+  pop.className = "acc-pop"; pop.id = "acc-pop";
+  pop.innerHTML = `<label>Add a month</label><input type="month" id="acc-pop-month" value="${def}"><div class="acc-pop-row"><button class="acc-pop-cancel">Cancel</button><button class="acc-pop-add">Add</button></div>`;
+  _accMountPop(pop, anchor);
+  const inp = pop.querySelector("#acc-pop-month"); inp.focus();
+  pop.querySelector(".acc-pop-cancel").addEventListener("click", _accClosePops);
+  pop.querySelector(".acc-pop-add").addEventListener("click", () => {
+    if (!inp.value) return;
+    const [y, mo] = inp.value.split("-").map(Number);
+    const month = `${MONTHS[mo - 1]} ${y}`;
+    if (_accDraft.find(m => m.month === month)) { showToast(`${month} is already added`); return; }
+    const t = monthToTime(month);
+    let src = null, srcT = -Infinity;
+    _accDraft.forEach(m => { const mt = monthToTime(m.month); if (mt < t && mt > srcT) { srcT = mt; src = m; } });
+    const vals = {};
+    _accBuckets.forEach(b => { vals[b.id] = src ? (Number(src.vals[b.id]) || 0) : 0; });
+    _accDraft.push({ month, locked: false, vals });
+    _accDraft.sort((a, b) => monthToTime(a.month) - monthToTime(b.month));
+    const newIdx = _accDraft.findIndex(m => m.month === month);
+    if (newIdx >= 0) _accMonthPage = Math.floor(newIdx / ACC_WIN); // jump to the window holding it
+    _accClosePops(); _accSetDirty(); renderAccGrid();
+  });
+}
+function _accAddAccountPop(anchor) {
+  _accClosePops();
+  const pop = document.createElement("div");
+  pop.className = "acc-pop"; pop.id = "acc-pop";
+  const typeOpts = (_accTypes.length ? _accTypes : ["Accounts"]).map(t => `<option value="${_accEsc(t)}">${t}</option>`).join("");
+  pop.innerHTML = `<label>Account name</label><input type="text" id="acc-pop-name" placeholder="e.g. Monzo" autocomplete="off"><label class="acc-pop-l2">Type</label><select id="acc-pop-type">${typeOpts}</select><div class="acc-pop-row"><button class="acc-pop-cancel">Cancel</button><button class="acc-pop-add">Add</button></div>`;
+  _accMountPop(pop, anchor);
+  const nameInp = pop.querySelector("#acc-pop-name"); nameInp.focus();
+  pop.querySelector(".acc-pop-cancel").addEventListener("click", _accClosePops);
+  pop.querySelector(".acc-pop-add").addEventListener("click", () => {
+    const name = nameInp.value.trim();
+    if (!name) { nameInp.focus(); return; }
+    if (_accBuckets.find(b => b.id.toLowerCase() === name.toLowerCase())) { showToast("That account already exists"); return; }
+    const type = pop.querySelector("#acc-pop-type").value;
+    _accBuckets.push({ id: name, color: ACC_PALETTE[_accBuckets.length % ACC_PALETTE.length], type, note: "" });
+    _accDraft.forEach(m => { m.vals[name] = 0; });
+    _accClosePops(); _accSetDirty(); renderAccGrid();
+  });
+}
+// ── Edit mode: select an account → bottom bar (Rename / Type / Classify / Delete) ──
+function toggleAccEditMode() { _accEditMode = !_accEditMode; renderAccGrid(); }
+function _accBucket(id) { return _accBuckets ? _accBuckets.find(b => b.id === id) : null; }
+
+// Inline rename (from the editable name input) — migrates references via cascadeAccountRename.
+function _accRenameInline(oldId, newName) {
+  const accts = (typeof getAllAccounts === "function") ? getAllAccounts() : [];
+  if (accts.some(a => a.toLowerCase() === newName.toLowerCase() && a !== oldId)) { showToast(`"${newName}" already exists`); renderAccGrid(); return; }
+  if (typeof cascadeAccountRename === "function") cascadeAccountRename(oldId, newName);
+  const bk = _accBucket(oldId); if (bk) bk.id = newName;
+  _accDraft.forEach(m => { if (oldId in m.vals) { m.vals[newName] = m.vals[oldId]; delete m.vals[oldId]; } });
+  const s = getSettings();
+  if (s.acctNotes && s.acctNotes[oldId]) { s.acctNotes[newName] = s.acctNotes[oldId]; delete s.acctNotes[oldId]; }
+  if (s.acctMemo && s.acctMemo[oldId]) { s.acctMemo[newName] = s.acctMemo[oldId]; delete s.acctMemo[oldId]; }
+  lsSet("fin_settings", s);
+  showToast(`Renamed to ${newName}`);
+  renderAccGrid();
+}
+function _accDeleteAccount(id) {
+  const go = () => { _accBuckets = _accBuckets.filter(b => b.id !== id); _accDraft.forEach(m => { delete m.vals[id]; }); _accSetDirty(); renderAccGrid(); };
+  if (typeof confirmDialog === "function") confirmDialog({ title: "Delete account?", message: `Delete "${id}"? Its balances are removed when you Save changes.`, confirmLabel: "Delete", cancelLabel: "Cancel", danger: true }, go);
+  else go();
+}
+function _accAddTypePop(anchor) {
+  _accClosePops();
+  const pop = document.createElement("div"); pop.className = "acc-pop"; pop.id = "acc-pop";
+  pop.innerHTML = `<label>New type</label><input type="text" id="acc-pop-type-name" placeholder="e.g. Crypto" autocomplete="off"><div class="acc-pop-row"><button class="acc-pop-cancel">Cancel</button><button class="acc-pop-add">Add</button></div>`;
+  _accMountPop(pop, anchor);
+  const inp = pop.querySelector("#acc-pop-type-name"); inp.focus();
+  pop.querySelector(".acc-pop-cancel").addEventListener("click", _accClosePops);
+  pop.querySelector(".acc-pop-add").addEventListener("click", () => {
+    const name = inp.value.trim(); if (!name) { inp.focus(); return; }
+    if (_accTypes.some(t => t.toLowerCase() === name.toLowerCase())) { showToast("That type already exists"); return; }
+    _accTypes.push(name); _accClosePops(); _accSetDirty(); renderAccGrid();
+  });
+}
+function _accDeleteType(type) {
+  if (_accBuckets.some(b => (b.type || "") === type)) { showToast("Move its accounts out first"); return; }
+  _accTypes = _accTypes.filter(t => t !== type); _accSetDirty(); renderAccGrid();
+}
+// move account `dragId` into `targetType`, positioned before `beforeId` (else appended to the type)
+function _accMoveAccount(dragId, targetType, beforeId) {
+  const b = _accBucket(dragId); if (!b) return;
+  b.type = targetType;
+  _accBuckets = _accBuckets.filter(x => x.id !== dragId);
+  let at;
+  if (beforeId && beforeId !== dragId) { at = _accBuckets.findIndex(x => x.id === beforeId); if (at < 0) at = _accBuckets.length; }
+  else { let last = -1; _accBuckets.forEach((x, i) => { if ((x.type || "") === targetType) last = i; }); at = last < 0 ? _accBuckets.length : last + 1; }
+  _accBuckets.splice(at, 0, b);
+  _accSetDirty(); renderAccGrid();
+}
+// pointer-drag to move accounts between type subheadings (+ reorder)
+function _accWireAcctDnD(wrap) {
+  wrap.querySelectorAll(".acc-g-row .drag-handle").forEach(handle => {
+    const row = handle.closest(".acc-g-row"); if (!row) return;
+    handle.style.touchAction = "none";
+    handle.addEventListener("pointerdown", ev => {
+      if (ev.button) return;
+      ev.preventDefault();
+      const dragId = row.dataset.cat;
+      handle.setPointerCapture?.(ev.pointerId);
+      row.classList.add("acc-dragging");
+      let tType = null, beforeId = null, lastHi = null;
+      const clearHi = () => { if (lastHi) { lastHi.classList.remove("acc-drop-into"); lastHi = null; } };
+      const onMove = e => {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const overRow = el && el.closest(".acc-g-row");
+        const overGroup = el && el.closest(".acc-g-group");
+        clearHi();
+        if (overRow && overRow !== row && wrap.contains(overRow)) { tType = overRow.dataset.type; beforeId = overRow.dataset.cat; overRow.classList.add("acc-drop-into"); lastHi = overRow; }
+        else if (overGroup && wrap.contains(overGroup)) { tType = overGroup.dataset.type; beforeId = null; overGroup.classList.add("acc-drop-into"); lastHi = overGroup; }
+        else { tType = null; }
+      };
+      const onUp = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        document.removeEventListener("pointercancel", onUp);
+        row.classList.remove("acc-dragging"); clearHi();
+        try { handle.releasePointerCapture?.(ev.pointerId); } catch {}
+        if (tType != null) _accMoveAccount(dragId, tType, beforeId);
+      };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+      document.addEventListener("pointercancel", onUp);
+    });
+  });
+}
+
+// rename a type subheading — reassigns every account in it to the new type name
+function _accRenameType(oldName, newName) {
+  if (_accTypes.some(t => t.toLowerCase() === newName.toLowerCase() && t !== oldName)) { showToast("That type already exists"); renderAccGrid(); return; }
+  _accTypes = _accTypes.map(t => t === oldName ? newName : t);
+  _accBuckets.forEach(b => { if ((b.type || "") === oldName) b.type = newName; });
+  _accSetDirty(); renderAccGrid();
+}
+// reorder a whole type subheading (its accounts follow, since rows render in _accTypes order)
+function _accMoveType(dragType, beforeType) {
+  if (dragType === beforeType) return;
+  _accTypes = _accTypes.filter(t => t !== dragType);
+  let at = _accTypes.indexOf(beforeType);
+  if (at < 0) at = _accTypes.length;
+  _accTypes.splice(at, 0, dragType);
+  _accSetDirty(); renderAccGrid();
+}
+// pointer-drag a type subheading to reorder it (drop onto another type / account → before that type)
+function _accWireTypeDnD(wrap) {
+  wrap.querySelectorAll(".acc-g-group .drag-handle").forEach(handle => {
+    const grp = handle.closest(".acc-g-group"); if (!grp) return;
+    handle.style.touchAction = "none";
+    handle.addEventListener("pointerdown", ev => {
+      if (ev.button) return;
+      ev.preventDefault();
+      const dragType = grp.dataset.type;
+      handle.setPointerCapture?.(ev.pointerId);
+      grp.classList.add("acc-dragging");
+      let overType = null, lastHi = null;
+      const clearHi = () => { if (lastHi) { lastHi.classList.remove("acc-drop-into"); lastHi = null; } };
+      const onMove = e => {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const og = el && (el.closest(".acc-g-group") || el.closest(".acc-g-row"));
+        clearHi();
+        if (og && og !== grp && wrap.contains(og) && og.dataset.type && og.dataset.type !== dragType) {
+          overType = og.dataset.type;
+          const target = wrap.querySelector(`.acc-g-group[data-type="${CSS.escape(overType)}"]`) || og;
+          target.classList.add("acc-drop-into"); lastHi = target;
+        } else { overType = null; }
+      };
+      const onUp = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        document.removeEventListener("pointercancel", onUp);
+        grp.classList.remove("acc-dragging"); clearHi();
+        try { handle.releasePointerCapture?.(ev.pointerId); } catch {}
+        if (overType != null) _accMoveType(dragType, overType);
+      };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+      document.addEventListener("pointercancel", onUp);
+    });
+  });
 }
 
 function renderAccSnapBar(entries) {
@@ -313,7 +732,6 @@ function openAccPanel(catId) {
   const trend = sparkline(trendVals, { w: 170, h: 58, stroke: value < 0 || delta < 0 ? "var(--neg)" : "var(--pos)", strokeWidth: 1.8 });
   const note = (typeof getAcctNote === "function" ? getAcctNote(catId) : "") || "";
   const recent = _accRecentActivity(catId);
-  const isLatest = _accIsLatest();
   const icon = ACC_ICONS[cat.id] || cat.id.trim()[0]?.toUpperCase() || "?";
 
   panel.innerHTML = `
@@ -376,19 +794,8 @@ function openAccPanel(catId) {
         <span>Provider</span><strong>${_accProvider(catId)}</strong>
         <span>Notes</span><strong>${note || "—"}</strong>
       </div>
-    </section>
+    </section>`;
 
-    <div class="acc-panel-actions">
-      <button class="btn-ghost" data-action="add-balance" ${isLatest ? "" : "disabled"} title="${isLatest ? "Edit latest snapshot balance" : "Use Edit snapshots for historical months"}">Add balance</button>
-      <button class="btn-ghost" data-action="transfer">Transfer</button>
-      <button class="btn-ghost" data-action="edit-account">Edit account</button>
-    </div>`;
-
-  panel.querySelector("[data-action='add-balance']")?.addEventListener("click", () => {
-    if (isLatest) editAccBalance(catId);
-  });
-  panel.querySelector("[data-action='transfer']")?.addEventListener("click", () => openAccTransfer(catId));
-  panel.querySelector("[data-action='edit-account']")?.addEventListener("click", () => openAccEdit(catId));
   panel.querySelector("[data-action='view-tx']")?.addEventListener("click", () => {
     switchPage("transactions");
     const s = document.getElementById("tx-all-search");
@@ -397,14 +804,14 @@ function openAccPanel(catId) {
   panel.querySelector("[data-action='close-panel']")?.addEventListener("click", closeAccPanel);
 
   panel.hidden = false;
-  document.querySelectorAll("#acc-list .acc-list-row").forEach(r => r.classList.toggle("selected", r.dataset.catId === catId));
+  document.querySelectorAll("#acc-grid .acc-g-row").forEach(r => r.classList.toggle("selected", r.dataset.cat === catId));
 }
 
 function closeAccPanel() {
   _accSelectedCat = null;
   const panel = document.getElementById("acc-panel");
   if (panel) panel.innerHTML = "";
-  document.querySelectorAll("#acc-list .acc-list-row").forEach(r => r.classList.remove("selected"));
+  document.querySelectorAll("#acc-grid .acc-g-row").forEach(r => r.classList.remove("selected"));
 }
 
 function editAccBalance(catId) {

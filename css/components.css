@@ -221,13 +221,6 @@ body:not(.booting) #boot-loader { display: none; }
 .tx-amt.pos { color: var(--pos); }
 .tx-desc { font-size: 11.5px; color: var(--ink-3); }
 .tx-date { color: var(--ink-3); font-size: 12.5px; }
-/* Day-group header rows in the transactions table */
-.tx-day-row td { border-bottom: none !important; padding: 7px 12px 2px !important; height: auto !important; background: transparent; }
-.tx-day-row .tx-day-lbl { font-size: 11.5px; font-weight: 700; color: var(--ink-2); letter-spacing: 0.02em; }
-.tx-day-row .tx-day-total { text-align: right; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; font-weight: 600; color: var(--ink-4); font-variant-numeric: tabular-nums; }
-.tx-day-row .tx-day-total.pos { color: var(--pos); }
-.tx-day-row .tx-day-total.neg { color: var(--neg); }
-.tx-day-row:hover td { background: transparent; }
 
 /* ── Category pill ── */
 .cat-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--bg-sunk); color: var(--ink-2); font-size: 11.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; position: relative; }
@@ -737,6 +730,10 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 .main:has(#page-accounts.active) .topbar .menu-btn {
   pointer-events: auto;
 }
+/* Transactions has its own search in the controls row — hide the redundant global topbar search
+   here. Use visibility (not display:none) so the search-wrap keeps its margin-left:auto spacer
+   role, which keeps the eye/theme/Add controls pushed to the right. */
+.main:has(#page-tx.active) .topbar .search-wrap { visibility: hidden; }
 #page-tx { padding-top: 30px; }
 #page-tx .tx-head { margin-bottom: 22px; }
 #page-tx .tx-head h1 { font-family: "Inter", sans-serif; font-size: 28px; font-weight: 750; letter-spacing: -0.03em; line-height: 1.1; }
@@ -795,10 +792,10 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 /* ── Controls row: search + filters ── */
 #page-tx .tx-controls {
   position: relative; padding: 0; margin-bottom: 14px; border: none; border-radius: 0; background: transparent;
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: nowrap;
 }
 #page-tx .tx-controls .tx-search-wrap {
-  flex: 1 1 auto; min-width: 0; height: 42px; border-radius: 9px;
+  flex: 0 1 760px; min-width: 240px; height: 42px; border-radius: 9px;
   background: color-mix(in oklch, var(--bg) 72%, transparent); border-color: color-mix(in oklch, var(--line) 86%, transparent);
 }
 #page-tx .tx-filter-toggle { flex: 0 0 auto; height: 42px; min-width: 140px; justify-content: space-between; padding: 0 16px; background: color-mix(in oklch, var(--bg) 72%, transparent); border-color: color-mix(in oklch, var(--line) 86%, transparent); margin-left: 0; }
@@ -821,11 +818,25 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
   border-color: color-mix(in oklch, var(--line) 82%, transparent);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 20px 60px rgba(0,0,0,0.14);
 }
+/* ── Fixed-area table: the card fills the screen so its bottom edge (and pager) never
+   moves with the row count. Scoped to the Transactions sub-tab via :has() so the
+   Imports & Rules tab keeps its normal scrolling flow. ── */
+#page-tx.active:has(#tx-section-transactions:not([hidden])) {
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+}
+#page-tx #tx-section-transactions:not([hidden]) {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+#page-tx #tx-section-transactions .tx-table-card {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+#page-tx .tx-table-scroll { flex: 1; min-height: 0; overflow: hidden auto; }
 #page-tx .tx-table-full th {
   height: 34px; padding-top: 7px; padding-bottom: 7px;
-  background: transparent; color: var(--ink-3); font-size: 10.5px; font-weight: 700;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg-elev); color: var(--ink-3); font-size: 10.5px; font-weight: 700;
 }
-#page-tx .tx-table-full td { height: 34px; padding-top: 3px; padding-bottom: 3px; }
+#page-tx .tx-table-full td { height: 44px; padding-top: 4px; padding-bottom: 4px; }
 #page-tx .tx-table-full tbody tr:hover { background: color-mix(in oklch, var(--bg-sunk) 60%, transparent); }
 #page-tx .tx-av { width: 22px; height: 22px; border-radius: 6px; font-size: 10px; }
 #page-tx .tx-merch { gap: 9px; }
@@ -848,7 +859,56 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 #page-tx .tx-amt { font-size: 14px; font-weight: 750; }
 #page-tx .tx-row-actions { opacity: 1; transform: none; gap: 8px; }
 #page-tx .nw-act button { width: 34px; height: 34px; border-radius: 8px; background: color-mix(in oklch, var(--bg) 72%, transparent); border-color: color-mix(in oklch, var(--line) 82%, transparent); color: var(--ink-2); }
-#page-tx .tx-table-sort { width: 124px; height: 34px; padding: 0 30px 0 12px; background: color-mix(in oklch, var(--bg) 70%, transparent); border-color: color-mix(in oklch, var(--line) 84%, transparent); border-radius: 8px; color: var(--ink-2); font-size: 12px; }
+#page-tx .tx-table-sort { flex: 0 0 auto; width: 140px; height: 42px; padding: 0 30px 0 12px; background: color-mix(in oklch, var(--bg) 70%, transparent); border-color: color-mix(in oklch, var(--line) 84%, transparent); border-radius: 9px; color: var(--ink-2); font-size: 12.5px; }
+
+/* Edit toggle + sort live on the right of the controls row; chips collapse when empty */
+#page-tx .active-chips:empty { display: none; }
+/* Edit toggle — neutral by default, solid red while editing */
+#page-tx .tx-edit-toggle {
+  flex: 0 0 auto; margin-left: auto;
+  display: inline-flex; align-items: center; gap: 7px; height: 42px; padding: 0 16px;
+  border-radius: 9px; cursor: pointer; white-space: nowrap; font: 600 13px/1 "Inter", sans-serif;
+  background: color-mix(in oklch, var(--bg) 70%, transparent);
+  border: 1px solid color-mix(in oklch, var(--line) 84%, transparent);
+  color: var(--ink-2); transition: background 150ms, color 150ms, border-color 150ms;
+}
+#page-tx .tx-edit-toggle:hover { color: var(--ink); background: color-mix(in oklch, var(--bg-sunk) 70%, transparent); }
+#page-tx .tx-edit-toggle svg { width: 14px; height: 14px; }
+#page-tx .tx-edit-toggle.editing { background: var(--neg); border-color: var(--neg); color: #fff; }
+#page-tx .tx-edit-toggle.editing:hover { background: var(--neg); opacity: 0.9; }
+
+/* ── Edit-mode columns: hidden by default (list spreads to fill); shown when editing ── */
+#page-tx .tx-check-col, #page-tx .tx-actions-col { display: none; }
+#page-tx .tx-table-card.tx-editing .tx-check-col { display: table-cell; }
+#page-tx .tx-table-card.tx-editing .tx-actions-col { display: table-cell; width: 104px; }
+/* :first-child/:last-child gutters land on the (possibly hidden) edge columns, so give the
+   data columns their own edge padding — keeps the list inset whether editing or not. */
+#page-tx .tx-table-full tr > :nth-child(2) { padding-left: 18px; }
+#page-tx .tx-table-full tr > :nth-last-child(2) { padding-right: 18px; }
+
+/* ── Static columns: in the default (non-edit) view the table is fixed-layout with set
+   widths, so columns never shift with description length (page 1 == page 2). Edit mode keeps
+   auto layout so the checkbox + action buttons can make room. ── */
+#page-tx .tx-table-card:not(.tx-editing) .tx-table-full { table-layout: fixed; }
+#page-tx .tx-table-card:not(.tx-editing) .tx-table-full th:nth-child(2) { width: 35%; } /* Merchant */
+#page-tx .tx-table-card:not(.tx-editing) .tx-table-full th:nth-child(3) { width: 17%; } /* Category */
+#page-tx .tx-table-card:not(.tx-editing) .tx-table-full th:nth-child(4) { width: 13%; } /* Date     */
+#page-tx .tx-table-card:not(.tx-editing) .tx-table-full th:nth-child(5) { width: 19%; } /* Account  */
+#page-tx .tx-table-card:not(.tx-editing) .tx-table-full th:nth-child(6) { width: 16%; } /* Amount   */
+
+/* Merchant truncation: clip the name/sub-line with "…" instead of widening the column. */
+#page-tx .tx-av { flex-shrink: 0; }
+#page-tx .tx-merch { min-width: 0; }
+#page-tx .tx-merch > div:not(.tx-av) { flex: 1; min-width: 0; overflow: hidden; }
+#page-tx .tx-merch b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#page-tx .tx-merch .tx-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Per-column alignment (both modes): Merchant left, Category/Date/Account center, Amount right. */
+#page-tx .tx-table-full th:nth-child(2), #page-tx .tx-table-full td:nth-child(2) { text-align: left; }
+#page-tx .tx-table-full th:nth-child(3), #page-tx .tx-table-full td:nth-child(3) { text-align: center; }
+#page-tx .tx-table-full th:nth-child(4), #page-tx .tx-table-full td:nth-child(4) { text-align: center; }
+#page-tx .tx-table-full th:nth-child(5), #page-tx .tx-table-full td:nth-child(5) { text-align: center; }
+
 #page-tx .pager { justify-content: space-between; padding: 16px 18px; background: transparent; }
 #page-tx .pager button { width: 34px; height: 34px; padding: 0; border-radius: 9px; }
 #page-tx .pager-pages { display: flex; align-items: center; gap: 10px; }

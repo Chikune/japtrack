@@ -77,7 +77,7 @@ function ensureBillsFromTxns(addedTxns) {
         const list = getRecurring();
         const r = list.find(x => String(x.id) === String(existing.id));
         if (r) { r.amount = amt; r.day = dayOf(t); lsSet("fin_recurring", list); }
-        showToast(`Updated “${existing.description}” to ${fmtGBP(amt,{dp:0})}`);
+        showToast(`Updated “${existing.description}” to ${fmtGBP(amt,{dp:2,minDp:0})}`);
         next();
       });
     };
@@ -121,10 +121,10 @@ function renderSchedSummary(recs, txns) {
   const out = recs.filter(r => r.type==='out').reduce((s,r)=>s+r.amount,0);
   const inn = recs.filter(r => r.type==='in').reduce((s,r)=>s+r.amount,0);
   const net = inn - out;
-  document.getElementById("sched-sum-in").textContent = fmtGBP(inn,{dp:0});
-  document.getElementById("sched-sum-out").textContent = fmtGBP(out,{dp:0});
+  document.getElementById("sched-sum-in").textContent = fmtGBP(inn,{dp:2,minDp:0});
+  document.getElementById("sched-sum-out").textContent = fmtGBP(out,{dp:2,minDp:0});
   const netEl = document.getElementById("sched-sum-net");
-  netEl.textContent = (net>=0?'+':'−')+fmtGBP(Math.abs(net),{dp:0});
+  netEl.textContent = (net>=0?'+':'−')+fmtGBP(Math.abs(net),{dp:2,minDp:0});
   netEl.style.color = net>=0 ? 'var(--pos)' : 'var(--neg)';
   const today = new Date();
   const isCurMonth = _viewMonth.y === today.getFullYear() && _viewMonth.m === today.getMonth();
@@ -164,7 +164,6 @@ function renderSchedList(recs, txns) {
   const rowHtml = ({r, day, posted, overdue}) => {
     const isIn = r.type === "in";
     const cat = CAT_BY[r.category] || {};
-    const sign = isIn ? "+£" : "−£";
     let badge;
     if (posted) badge = `<span class="badge-status posted">Posted ✓</span>`;
     else if (overdue) badge = `<span class="badge-status overdue">Overdue · ${day}${ordinal(day)}</span>`;
@@ -182,14 +181,14 @@ function renderSchedList(recs, txns) {
       const done = remaining <= 0.005;
       repayHtml = `<div class="sched-repay">
         <div class="sched-repay-track"><div class="sched-repay-fill${done?' done':''}" style="width:${Math.min(100,pct).toFixed(1)}%"></div></div>
-        <div class="sched-repay-meta"><span class="num blur">${fmtGBP(paid,{dp:0})}</span> of <span class="num blur">${fmtGBP(r.total,{dp:0})}</span> · ${done?'<b>Paid off ✓</b>':`<span class="num blur">${fmtGBP(remaining,{dp:0})}</span> left`}</div>
+        <div class="sched-repay-meta"><span class="num blur">${fmtGBP(paid,{dp:2,minDp:0})}</span> of <span class="num blur">${fmtGBP(r.total,{dp:2,minDp:0})}</span> · ${done?'<b>Paid off ✓</b>':`<span class="num blur">${fmtGBP(remaining,{dp:2,minDp:0})}</span> left`}</div>
       </div>`;
     }
     return `<div class="sched-row-full ${posted?'posted':''}${String(r.id)===_schedSelectedId?' selected':''}" data-rec-id="${r.id}">
       <div class="ic" style="background:color-mix(in oklch,${cat.color||(isIn?'var(--pos)':'var(--ink-3)')} 30%,var(--bg-sunk));color:var(--ink)">📅</div>
       <div class="info"><b>${r.description||'—'}</b><span>${r.category || (isIn?'Income':'—')}${r.account?' · '+r.account:''}</span>${repayHtml}</div>
       ${badge}
-      <div class="amt ${isIn?'pos':''}"><span class="blur">${sign}${r.amount.toFixed(0)}</span></div>
+      <div class="amt ${isIn?'pos':''}"><span class="blur">${isIn ? fmtGBP(r.amount,{sign:true,minDp:0}) : fmtGBP(-r.amount,{minDp:0})}</span></div>
       <div class="acts">
         ${!posted ? `<button title="Mark posted (creates a transaction)" onclick="markScheduledPosted('${r.id}', ${day})" style="color:var(--pos);border-color:color-mix(in oklch, var(--pos) 30%, var(--line))"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l4 4L19 6"/></svg></button>` : ''}
         <button title="Edit" onclick="openSchedModal('${r.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
@@ -238,7 +237,7 @@ function renderSchedPanel(rec) {
     .filter(t => (t.description||"").toLowerCase() === (rec.description||"").toLowerCase() && Math.abs(t.amount - rec.amount) < 0.01)
     .sort((a,b) => (b.date||"").localeCompare(a.date||"")).slice(0,3);
   const recentHtml = matches.length
-    ? matches.map(t => `<div class="sp-recent"><span>${_schedShortDate(t.date)}</span><span class="num blur ${isIn?'pos':'neg'}">${isIn?'+':'−'}${fmtGBP(Math.abs(t.amount),{dp:0})}</span></div>`).join("")
+    ? matches.map(t => `<div class="sp-recent"><span>${_schedShortDate(t.date)}</span><span class="num blur ${isIn?'pos':'neg'}">${isIn?'+':'−'}${fmtGBP(Math.abs(t.amount),{dp:2,minDp:0})}</span></div>`).join("")
     : `<div class="sp-empty">No payments logged yet</div>`;
 
   const repay = schedIsRepayment(rec) && rec.total > 0;
@@ -252,22 +251,22 @@ function renderSchedPanel(rec) {
     let payoff = "Paid off";
     if (!done) { const d = new Date(_viewMonth.y, _viewMonth.m + monthsLeft, 1); payoff = monthLabel(d.getFullYear(), d.getMonth()); }
     bodyHtml = `
-      <div class="sp-hero"><span class="sp-hero-lab">${done?'Repaid':'Balance left'}</span><span class="sp-hero-val num blur ${done?'pos':''}">${fmtGBP(remaining,{dp:0})}</span></div>
+      <div class="sp-hero"><span class="sp-hero-lab">${done?'Repaid':'Balance left'}</span><span class="sp-hero-val num blur ${done?'pos':''}">${fmtGBP(remaining,{dp:2,minDp:0})}</span></div>
       <div class="sched-repay sp-bar">
         <div class="sched-repay-track"><div class="sched-repay-fill${done?' done':''}" style="width:${Math.min(100,pct).toFixed(1)}%"></div></div>
-        <div class="sched-repay-meta"><span class="num blur">${fmtGBP(paid,{dp:0})}</span> of <span class="num blur">${fmtGBP(rec.total,{dp:0})}</span> paid · ${pct.toFixed(0)}%</div>
+        <div class="sched-repay-meta"><span class="num blur">${fmtGBP(paid,{dp:2,minDp:0})}</span> of <span class="num blur">${fmtGBP(rec.total,{dp:2,minDp:0})}</span> paid · ${pct.toFixed(0)}%</div>
       </div>
       <div class="sp-grid">
-        <div class="sp-cell"><span>Monthly</span><b class="num blur">${fmtGBP(rec.amount,{dp:0})}</b></div>
+        <div class="sp-cell"><span>Monthly</span><b class="num blur">${fmtGBP(rec.amount,{dp:2,minDp:0})}</b></div>
         <div class="sp-cell"><span>Payments left</span><b>${done?'0':monthsLeft}</b></div>
         <div class="sp-cell"><span>Projected payoff</span><b>${payoff}</b></div>
         <div class="sp-cell"><span>Due day</span><b>${(rec.day||1)}${ordinal(rec.day||1)}</b></div>
       </div>`;
   } else {
     bodyHtml = `
-      <div class="sp-hero"><span class="sp-hero-lab">${isIn?'Monthly income':'Monthly amount'}</span><span class="sp-hero-val num blur ${isIn?'pos':'neg'}">${isIn?'+':'−'}${fmtGBP(rec.amount,{dp:0})}</span></div>
+      <div class="sp-hero"><span class="sp-hero-lab">${isIn?'Monthly income':'Monthly amount'}</span><span class="sp-hero-val num blur ${isIn?'pos':'neg'}">${isIn?'+':'−'}${fmtGBP(rec.amount,{dp:2,minDp:0})}</span></div>
       <div class="sp-grid">
-        <div class="sp-cell"><span>Per year</span><b class="num blur">${isIn?'+':'−'}${fmtGBP(rec.amount*12,{dp:0})}</b></div>
+        <div class="sp-cell"><span>Per year</span><b class="num blur">${isIn?'+':'−'}${fmtGBP(rec.amount*12,{dp:2,minDp:0})}</b></div>
         <div class="sp-cell"><span>Due day</span><b>${(rec.day||1)}${ordinal(rec.day||1)}</b></div>
         <div class="sp-cell"><span>Category</span><b>${rec.category||'—'}</b></div>
         <div class="sp-cell"><span>Account</span><b>${rec.account||'—'}</b></div>
@@ -384,11 +383,11 @@ function markScheduledPosted(recId, day) {
     const left = Math.max(rec.total - rec.paid, 0);
     showToast(left <= 0.005
       ? `${rec.description || 'Repayment'} paid off 🎉`
-      : `Posted · ${fmtGBP(left,{dp:0})} left on ${rec.description || 'repayment'}`);
+      : `Posted · ${fmtGBP(left,{dp:2,minDp:0})} left on ${rec.description || 'repayment'}`);
     renderAll();
     return;
   }
-  showToast(`Posted: ${rec.description || 'item'} (${fmtGBP(rec.amount,{dp:0})})`);
+  showToast(`Posted: ${rec.description || 'item'} (${fmtGBP(rec.amount,{dp:2,minDp:0})})`);
   renderAll();
 }
 

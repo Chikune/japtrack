@@ -34,14 +34,14 @@ function activeCurrency() {
 // Currency-aware money formatter. Name kept as fmtGBP for the many existing
 // call sites; fmtMoney is a clearer alias for new code.
 function fmtGBP(n, opts = {}) {
-  const { sign = false, dp = 2, compact = false } = opts;
+  const { sign = false, dp = 2, minDp = dp, compact = false } = opts;
   const cur = activeCurrency();
   const abs = Math.abs(n);
   let str;
   if (compact && abs >= 1000) {
     str = abs >= 1e6 ? (abs/1e6).toFixed(2)+"M" : abs >= 1e4 ? (abs/1e3).toFixed(1)+"k" : (abs/1e3).toFixed(2)+"k";
   } else {
-    str = abs.toLocaleString(cur.locale, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+    str = abs.toLocaleString(cur.locale, { minimumFractionDigits: minDp, maximumFractionDigits: dp });
   }
   const pre = n < 0 ? `−${cur.symbol}` : (sign ? `+${cur.symbol}` : cur.symbol);
   return pre + str;

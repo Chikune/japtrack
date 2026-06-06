@@ -69,16 +69,16 @@
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h12l-3-3M20 17H8l3 3"/></svg></span>
       <span class="nav-label">Transactions</span>
     </button>
+    <button class="nav-item" data-page="accounts" data-tooltip="Balances">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span>
+      <span class="nav-label">Balances</span>
+    </button>
+
+    <div class="nav-section">PLANNING</div>
     <button class="nav-item" data-page="scheduled" data-tooltip="Bills &amp; Subscriptions">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
       <span class="nav-label">Bills &amp; Subscriptions</span>
     </button>
-    <button class="nav-item" data-page="accounts" data-tooltip="Accounts">
-      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span>
-      <span class="nav-label">Accounts</span>
-    </button>
-
-    <div class="nav-section">PLANNING</div>
     <button class="nav-item" data-page="budgets" data-tooltip="Budgets">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
       <span class="nav-label">Budgets</span>
@@ -428,30 +428,35 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-4)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input id="tx-all-search" placeholder="Search merchant, category, account, notes..." autocomplete="off" />
           </div>
+          <button type="button" class="tx-edit-toggle" id="tx-edit-toggle" aria-pressed="false" onclick="toggleTxEditMode()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            Edit
+          </button>
+          <select class="bucket-sel tx-table-sort" id="tx-all-sort" aria-label="Sort transactions">
+            <option value="date-desc">Newest first</option>
+            <option value="date-asc">Oldest first</option>
+            <option value="amount-desc">Highest first</option>
+            <option value="amount-asc">Lowest first</option>
+            <option value="merchant">Merchant A to Z</option>
+          </select>
         </div><!-- /tx-controls -->
         <div class="active-chips" id="tx-active-chips"></div>
 
         <div class="card tx-table-card">
+          <div class="tx-table-scroll">
           <table class="tx-table-full">
             <thead><tr>
               <th class="tx-check-col"><input type="checkbox" id="tx-all-check" aria-label="Select all transactions on this page" onchange="toggleTxAllSelected(this.checked)"></th>
               <th class="sortable" data-sort="merchant">Merchant</th>
               <th>Category</th>
-              <th>Account</th>
               <th class="sortable" data-sort="date">Date</th>
+              <th>Account</th>
               <th class="sortable" data-sort="amount" style="text-align:right">Amount</th>
-              <th style="width:138px">
-                <select class="bucket-sel tx-table-sort" id="tx-all-sort" aria-label="Sort transactions">
-                  <option value="date-desc">Newest first</option>
-                  <option value="date-asc">Oldest first</option>
-                  <option value="amount-desc">Highest first</option>
-                  <option value="amount-asc">Lowest first</option>
-                  <option value="merchant">Merchant A to Z</option>
-                </select>
-              </th>
+              <th class="tx-actions-col" aria-label="Actions"></th>
             </tr></thead>
             <tbody id="tx-all-tbody"></tbody>
           </table>
+          </div><!-- /tx-table-scroll -->
           <div class="pager" id="tx-all-pager"></div>
         </div>
       </section>
@@ -596,7 +601,7 @@
     <div class="page" id="page-accounts" data-page="accounts">
       <div class="page-head acc-page-head">
         <div>
-          <h1>Accounts</h1>
+          <h1>Balances</h1>
           <div class="sub">See all your accounts and their current balances.</div>
         </div>
       </div>
@@ -605,62 +610,18 @@
       <div class="acc-tab-panel" id="acc-tab-accounts">
         <div class="acc-body">
           <div class="acc-body-main">
-            <div class="acc-kpi-grid">
-              <div class="acc-kpi-card">
-                <div class="acc-kpi-copy">
-                  <span>Total balance</span>
-                  <strong class="num blur" id="acc-total">—</strong>
-                  <small>All accounts</small>
-                </div>
-                <span class="acc-kpi-ic pos" id="acc-ic-total">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19"/><path d="M16 14.5h3"/></svg>
-                </span>
-              </div>
-              <div class="acc-kpi-card">
-                <div class="acc-kpi-copy">
-                  <span>This month</span>
-                  <strong class="num blur" id="acc-delta">—</strong>
-                  <small>vs last month</small>
-                </div>
-                <span class="acc-kpi-ic" id="acc-ic-delta">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 7 9 13 13 9 21 17"/><polyline points="21 12 21 17 16 17"/></svg>
-                </span>
-              </div>
-              <div class="acc-kpi-card acc-kpi-mover">
-                <div class="acc-kpi-copy">
-                  <span>Largest change</span>
-                  <strong id="acc-mover-name">No movement yet</strong>
-                  <small class="num blur" id="acc-mover">—</small>
-                </div>
-                <span class="acc-kpi-ic" id="acc-ic-mover">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
-                </span>
-              </div>
+            <div class="acc-bal-bar">
+              <div class="acc-bal-left" id="acc-bal-left"></div>
+              <div class="acc-bal-actions" id="acc-bal-actions"></div>
             </div>
-            <div class="card acc-list-card">
-              <div class="acc-list-head">
-                <div>
-                  <h2>Accounts</h2>
-                  <div id="acc-list-sub">Snapshot balances</div>
-                </div>
-              </div>
-              <div class="acc-table-head">
-                <span>Account</span>
-                <span>Balance</span>
-                <span>This month</span>
-                <span>Trend (30d)</span>
-                <span>Status</span>
-                <span></span>
-              </div>
-              <div id="acc-list" class="acc-list-tab"></div>
+            <div class="card acc-grid-card">
+              <div class="acc-grid-wrap" id="acc-grid"></div>
             </div>
-            <div class="acc-footnote">
-              <span>i</span>
-              Balances are updated when you add or edit a snapshot. Change is compared to your previous snapshot.
+            <div class="card acc-tfr-card">
+              <div class="acc-tfr-head"><h2>Transfers</h2><span id="acc-tfr-sub"></span></div>
+              <div class="acc-tfr-wrap" id="acc-transfers"></div>
             </div>
-            <div class="acc-snap-bar" id="acc-snap-bar"></div>
           </div>
-          <div class="acc-panel" id="acc-panel"></div>
         </div>
       </div>
 

@@ -35,15 +35,18 @@ let _txAllPageSize = (() => {
   const n = parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : 25;
 })();
-// Best-effort: how many rows fit below the table header without scrolling the page.
+// Best-effort: how many rows fit inside the FIXED-height scroll region (below the
+// sticky header) without scrolling. The box itself no longer resizes to the content —
+// it fills the screen — so we measure that fixed area rather than the viewport.
 function txFitRows() {
-  const card = document.querySelector("#page-tx .tx-table-card");
-  if (!card) return 20;
-  const top = card.getBoundingClientRect().top;
-  if (top <= 0 || top > window.innerHeight) return 20; // page not visible yet
-  const PAGER_RESERVE = 72, ROW_PITCH = 46; // ~40px row + amortised day-header
-  const avail = window.innerHeight - top - PAGER_RESERVE - 16;
-  return Math.max(6, Math.floor(avail / ROW_PITCH));
+  const wrap = document.querySelector("#page-tx .tx-table-scroll");
+  if (!wrap) return 20;
+  const avail = wrap.clientHeight;
+  if (avail <= 0) return 20; // page not laid out / not visible yet
+  const thead = wrap.querySelector("thead");
+  const headH = thead ? thead.getBoundingClientRect().height : 34;
+  const ROW_PITCH = 44; // fixed uniform row height (keep in sync with the td height in CSS)
+  return Math.max(6, Math.floor((avail - headH) / ROW_PITCH));
 }
 function setTxPageSize(v) {
   if (v === "fit") { _txFitMode = true; localStorage.setItem("ledger_tx_pagesize", "fit"); }
@@ -58,6 +61,9 @@ function setTxPageSize(v) {
   renderTxAllTable(applyTxFilters());
 }
 let _txSelected = new Set();
+// Edit mode (off by default): when on, the checkbox + actions columns appear and the
+// Edit button turns red. Off → those columns hide and the data columns spread to fill.
+let _txEditMode = false;
 let _txEditId = null;
 let _txModalType = "out";
 let _activeTxPop = null;
@@ -237,19 +243,6 @@ function clearAllTxFilters() {
   renderTxAll();
 }
 
-// Day-group header label: "Today · 19 May 2025", "Yesterday · …", else "Mon · 19 May 2025".
-function txDayLabel(k) {
-  if (!k) return "Undated";
-  const d = new Date(k + "T00:00:00");
-  if (isNaN(d)) return k;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today - d) / 86400000);
-  const full = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  if (diff === 0) return `Today · ${full}`;
-  if (diff === 1) return `Yesterday · ${full}`;
-  return `${d.toLocaleDateString("en-GB", { weekday: "long" })} · ${full}`;
-}
-
 function renderTxAllTable(filtered) {
   const tbody = document.getElementById("tx-all-tbody");
   if (!filtered.length) {
@@ -257,12 +250,10 @@ function renderTxAllTable(filtered) {
     document.getElementById("tx-all-pager").innerHTML = "";
     return;
   }
-  const groupByDay = _txAllSort === "date-desc" || _txAllSort === "date-asc";
-  // Build the tbody HTML (day-group headers + rows) for a given array of transactions.
+  // Build the tbody HTML (one uniform row per transaction) for a given array.
   function buildTxRows(rowsArr) {
     // Memoise the expense-category set so the refund-glyph check is O(1) per row.
     const EXP_CAT_SET = new Set(getAllCats("exp").map(c => c.id));
-    let lastDay = null;
     return rowsArr.map(t => {
       const ty = normType(t);
       const isIn = ty === "in", isTfr = ty === "transfer";
@@ -291,21 +282,14 @@ function renderTxAllTable(filtered) {
       const refundGlyph = isRefund ? '<span class="tx-refund-glyph" title="Refund — cancels original expense">↩</span> ' : '';
       const acctBg = aMeta.color ? `color-mix(in oklch, ${aMeta.color} 20%, transparent)` : "color-mix(in oklch, var(--bg-sunk) 82%, transparent)";
       const sel = _txSelected.has(String(t.id));
-      let dayHeader = "";
-      const dk = t.date || "";
-      if (groupByDay && dk !== lastDay) {
-        lastDay = dk;
-        // Day-group label only — the per-day net total was removed (visual clutter).
-        dayHeader = `<tr class="tx-day-row" aria-hidden="true"><td></td><td colspan="6" class="tx-day-lbl">${txDayLabel(dk)}</td></tr>`;
-      }
-      return dayHeader + `<tr class="${sel ? 'tx-row-sel' : ''}">
+      return `<tr class="${sel ? 'tx-row-sel' : ''}">
         <td class="tx-check-col"><input type="checkbox" class="tx-row-check" ${sel ? 'checked' : ''} aria-label="Select transaction" onclick="toggleTxSelected('${t.id}')"></td>
         <td><div class="tx-merch"><div class="tx-av" style="background:color-mix(in oklch,${avatarColor} 30%,var(--bg-sunk));color:var(--ink-2)">${letter}</div><div><b>${refundGlyph}${desc}</b>${subLine}</div></div></td>
         <td>${isTfr?`<span class="cat-pill"><i class="swatch" style="background:var(--c-lisa)"></i>Transfer</span>`:buildCatPill(t.id, catId)}</td>
-        <td><span class="acct-tag" style="background:${acctBg};color:var(--ink-2)">${acct}${isTfr && toAcct ? "" : ""}</span></td>
         <td class="tx-date">${dateStr}</td>
+        <td><span class="acct-tag" style="background:${acctBg};color:var(--ink-2)">${acct}${isTfr && toAcct ? "" : ""}</span></td>
         <td class="${amtClass}"><span class="blur">${amtSign}${Math.abs(t.amount).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}</span></td>
-        <td><div class="nw-act tx-row-actions">
+        <td class="tx-actions-col"><div class="nw-act tx-row-actions">
           <button title="Edit" onclick="openTxModal('${t.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
           <button class="danger" title="Delete" onclick="deleteTx('${t.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
         </div></td>
@@ -321,10 +305,13 @@ function renderTxAllTable(filtered) {
     effSize = Math.min(filtered.length, Math.max(txFitRows() + 14, 30));
     let probe = filtered.slice(0, effSize);
     tbody.innerHTML = buildTxRows(probe);
-    const main = document.querySelector(".main");
-    const tbodyTop = tbody.getBoundingClientRect().top;
-    if (main && tbodyTop > 0) {
-      const avail = main.clientHeight - tbodyTop - 170; // reserve for pager + bottom padding + per-page day-header variance
+    // Shrink the probe until the rows fit the fixed scroll region (below the sticky
+    // header), so fit-mode fills the box exactly with no internal scrollbar.
+    const wrap = document.querySelector("#page-tx .tx-table-scroll");
+    if (wrap && wrap.clientHeight > 0) {
+      const thead = wrap.querySelector("thead");
+      const headH = thead ? thead.getBoundingClientRect().height : 0;
+      const avail = wrap.clientHeight - headH;
       let guard = 0;
       while (probe.length > 5 && tbody.getBoundingClientRect().height > avail && guard++ < 80) {
         probe = probe.slice(0, probe.length - 1);
@@ -442,6 +429,17 @@ function syncTxAllCheck() {
   if (ck) ck.checked = allOn;
 }
 function clearTxSelection() { _txSelected.clear(); renderTxAll(); }
+// Toggle edit mode: reveal/hide the checkbox + actions columns and recolour the button.
+// Leaving edit mode drops any pending selection so the bulk bar can't linger.
+function toggleTxEditMode() {
+  _txEditMode = !_txEditMode;
+  const card = document.querySelector("#page-tx .tx-table-card");
+  const btn = document.getElementById("tx-edit-toggle");
+  if (card) card.classList.toggle("tx-editing", _txEditMode);
+  if (btn) { btn.classList.toggle("editing", _txEditMode); btn.setAttribute("aria-pressed", String(_txEditMode)); }
+  if (!_txEditMode) _txSelected.clear();
+  renderTxAll();
+}
 function renderTxBulkBar() {
   const bar = document.getElementById("tx-bulk-bar");
   if (_txSelected.size) { bar.hidden = false; document.getElementById("tx-bulk-count").textContent = _txSelected.size; }
@@ -451,7 +449,7 @@ function renderTxBulkBar() {
 // Unified Bulk edit modal: description, category, note, and account(s) in one place.
 function bulkChangeAccountsOpen() {
   if (!_txSelected.size) return;
-  const accts = (typeof getAllAccounts === "function") ? getAllAccounts() : (getSettings().accounts || []);
+  const accts = (typeof NW_CATS !== "undefined" ? NW_CATS.map(b => b.id) : []).filter(Boolean);
   const opt = (a) => `<option value="${a.replace(/"/g,'&quot;')}">${a}</option>`;
   const NONE = `<option value="__keep__" selected>— Don't change —</option>`;
   const isTransfer = _txAllType === "transfer";
@@ -551,12 +549,14 @@ function openTxModal(id = null, defaultType = null, prefill = null) {
   document.getElementById("tx-modal-title").textContent = id ? "Edit transaction" : "Add transaction";
   _txModalType = t ? normType(t) : (defaultType || TX_PAGE_TYPES[_activePage] || "out");
   syncTxModalType();
-  // populate dropdowns
-  const accts = [...new Set([...getTxAccts(), ...getSettings().accounts])].filter(Boolean);
-  const acctOpts = accts.map(a => `<option value="${a}">${a}</option>`).join("");
-  document.getElementById("tx-m-acct").innerHTML = acctOpts;
-  document.getElementById("tx-m-from").innerHTML = acctOpts;
-  document.getElementById("tx-m-to").innerHTML = acctOpts;
+  // Accounts come from the Balances page (NW_CATS) so transfers/accounts stay consistent with it.
+  // For an existing txn, keep its current value if it isn't a Balances account (don't lose imports).
+  const accts = (typeof NW_CATS !== "undefined" ? NW_CATS.map(b => b.id) : []).filter(Boolean);
+  const optsFor = cur => ((cur && !accts.includes(cur)) ? [cur, ...accts] : accts)
+    .map(a => `<option value="${String(a).replace(/"/g, "&quot;")}">${a}</option>`).join("");
+  document.getElementById("tx-m-acct").innerHTML = optsFor(t?.account);
+  document.getElementById("tx-m-from").innerHTML = optsFor(t?.fromAccount);
+  document.getElementById("tx-m-to").innerHTML = optsFor(t?.toAccount);
   const today = new Date().toISOString().slice(0,10);
   document.getElementById("tx-m-date").value = t?.date || today;
   document.getElementById("tx-m-amt").value = t?.amount || "";
