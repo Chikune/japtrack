@@ -3,10 +3,8 @@
 ════════════════════════════════════════ */
 let _budEditId = null;
 let _budDetailId = null;
-let _budExpanded = false;
-let _budStatusFilter = "all";
 let _budSort = "priority";
-const _budSelected = new Set();
+let _budEditMode = false;   // list Edit toggle — reveals edit/delete buttons on rows
 
 function budCatOf(b) { return b.id || b.category; }
 function budgetTypeFor(cat) {
@@ -51,87 +49,66 @@ function budgetActualsForMonth() {
   return { actuals, txns: cur.txns };
 }
 
+// Average monthly income — recurring forecast income first, else the mean of the
+// last 3 months' actual income (same approach the old allocation-plan card used).
+function _budMonthlyIncome() {
+  const fcs = (typeof getForecasts === "function") ? getForecasts() : [];
+  const fcInc = fcs.filter(f => f.type === "in" && f.recurrence === "monthly").reduce((s, f) => s + f.amount, 0);
+  if (fcInc) return fcInc;
+  const txns = getTxns();
+  const flows = [];
+  for (let i = 0; i < 3; i++) {
+    let y = _viewMonth.y, m = _viewMonth.m - i;
+    while (m < 0) { m += 12; y--; }
+    flows.push(mStat(txns, y, m).income);
+  }
+  const valid = flows.filter(f => f > 0);
+  return valid.length ? valid.reduce((s, v) => s + v, 0) / valid.length : 0;
+}
+
 function renderBud() {
-  if (typeof renderAllocPlan === "function") renderAllocPlan();
   const buds = getBudgets().filter(b => b.type === "out");
   const { actuals, txns } = budgetActualsForMonth();
-  document.getElementById("bud-sub").textContent = "Plan, track and manage your spending";
-  if (_budDetailId && !buds.some(b => String(budCatOf(b)) === String(_budDetailId))) _budDetailId = buds.length ? budCatOf(buds[0]) : null;
+  // Subline: count + how much of typical income the budgets allocate.
+  const sub = document.getElementById("bud-sub");
+  if (sub) {
+    if (!buds.length) sub.textContent = "Set monthly limits per category";
+    else {
+      const income = _budMonthlyIncome();
+      const totalBud = buds.reduce((s, b) => s + b.amount, 0);
+      const allocTxt = income > 0 ? ` · ${Math.round(totalBud / income * 100)}% of income allocated` : "";
+      sub.textContent = `${buds.length} budget${buds.length > 1 ? "s" : ""}${allocTxt}`;
+    }
+  }
+  // A selected detail must still exist — but never auto-select (panel is opt-in).
+  if (_budDetailId && !buds.some(b => String(budCatOf(b)) === String(_budDetailId))) _budDetailId = null;
   renderBudKPIs(buds, actuals);
   renderBudGrid(buds, actuals);
   renderUnbudgeted(buds, actuals);
   renderBudgetDetail(buds, actuals, txns);
-  renderBudBulkBar();
 }
 
+// Three slim chips in the card header (same chip style as the Bills calendar).
 function renderBudKPIs(buds, actuals) {
+  const el = document.getElementById("bud-kpis-inline"); if (!el) return;
   const totalBud = buds.reduce((s, b) => s + b.amount, 0);
   const totalSpent = buds.reduce((s, b) => s + (actuals[budCatOf(b)] || 0), 0);
   const remaining = totalBud - totalSpent;
-  const stats = buds.map(b => budgetStatus(b, actuals[budCatOf(b)] || 0).key);
-  const onTrack = stats.filter(s => s === "track").length;
-  const over = stats.filter(s => s === "over").length;
-  const spentPct = totalBud ? Math.round(totalSpent / totalBud * 100) : 0;
-  const ICONS = {
-    list:   `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>`,
-    down:   `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>`,
-    wallet: `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19"/><path d="M16 14.5h3"/></svg>`,
-    check:  `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>`,
-    alert:  `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 4.3 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0z"/></svg>`,
-  };
-  const cards = [
-    { label: "Total budget", value: fmtGBP(totalBud, { dp: 0 }), sub: "Monthly limit", cls: "", ic: ICONS.list, tone: "" },
-    { label: "Total spent", value: fmtGBP(totalSpent, { dp: 0 }), sub: `${spentPct}% of budget`, cls: totalSpent > totalBud ? "neg" : "", ic: ICONS.down, tone: "neg" },
-    { label: "Total remaining", value: `${remaining < 0 ? "-" : ""}${fmtGBP(Math.abs(remaining), { dp: 0 })}`, sub: remaining < 0 ? "Over budget" : "Left to spend", cls: remaining < 0 ? "neg" : "pos", ic: ICONS.wallet, tone: remaining < 0 ? "neg" : "pos" },
-    { label: "On track", value: String(onTrack), sub: `${buds.length ? Math.round(onTrack / buds.length * 100) : 0}% of budgets`, cls: "pos", ic: ICONS.check, tone: "pos" },
-    { label: "Over budget", value: String(over), sub: `${buds.length ? Math.round(over / buds.length * 100) : 0}% of budgets`, cls: "neg", ic: ICONS.alert, tone: "neg" },
-  ];
-  document.getElementById("bud-kpis").innerHTML = cards.map(c => `
-    <div class="bud-kpi-card">
-      <div class="bud-kpi-copy">
-        <span>${c.label}</span>
-        <b class="blur ${c.cls}">${c.value}</b>
-        <small>${c.sub}</small>
-      </div>
-      <span class="bud-kpi-ic ${c.tone}">${c.ic}</span>
-    </div>
-  `).join("");
+  el.innerHTML = buds.length ? `
+    <span class="sched-kpi"><span>Budget</span><b class="num blur">${fmtGBP(totalBud,{dp:0})}</b></span>
+    <span class="sched-kpi"><span>Spent</span><b class="num blur ${totalSpent > totalBud ? "neg" : ""}">${fmtGBP(totalSpent,{dp:0})}</b></span>
+    <span class="sched-kpi"><span>Left</span><b class="num blur" style="color:${remaining < 0 ? "var(--neg)" : "var(--pos)"}">${remaining < 0 ? "−" : ""}${fmtGBP(Math.abs(remaining),{dp:0})}</b></span>` : "";
 }
 
 function renderBudGrid(buds, actuals) {
   const grid = document.getElementById("bud-grid");
-  const rowCount = document.getElementById("bud-row-count");
-  const toggle = document.getElementById("bud-view-toggle");
-  const foot = document.getElementById("bud-list-foot");
   if (!buds.length) {
-    rowCount.textContent = "";
-    toggle.hidden = true;
-    if (foot) foot.style.display = "none";
     grid.innerHTML = `<div class="page-stub"><h3>No budgets yet</h3><div>Click <b>Add budget</b> to set monthly limits per category.</div></div>`;
     return;
   }
-  const sorted = sortedBudgets(buds, actuals);
-  const filtered = _budStatusFilter === "all" ? sorted : sorted.filter(b => budgetStatus(b, actuals[budCatOf(b)] || 0).key === _budStatusFilter);
-  const visible = _budExpanded ? filtered : filtered.slice(0, 5);
-  if (foot) foot.style.display = "";
-  rowCount.textContent = `Show ${visible.length} of ${filtered.length} budgets`;
-  renderBudgetStatusTabs(sorted, actuals);
   const sortSel = document.getElementById("bud-sort");
   if (sortSel) sortSel.value = _budSort;
-  toggle.hidden = filtered.length <= 5;
-  toggle.textContent = _budExpanded ? "Show fewer" : "View all budgets";
-  grid.innerHTML = visible.map(b => budgetRowHTML(b, actuals)).join("");
-}
-
-function renderBudgetStatusTabs(buds, actuals) {
-  const counts = { all: buds.length, track: 0, watch: 0, over: 0 };
-  buds.forEach(b => counts[budgetStatus(b, actuals[budCatOf(b)] || 0).key]++);
-  document.querySelectorAll("#bud-status-tabs button").forEach(btn => {
-    const f = btn.dataset.budFilter;
-    btn.classList.toggle("active", f === _budStatusFilter);
-    const label = f === "all" ? "All" : f === "track" ? "On track" : f === "watch" ? "Watch" : "Over budget";
-    btn.textContent = `${label} (${counts[f] || 0})`;
-  });
+  grid.innerHTML = sortedBudgets(buds, actuals).map(b => budgetRowHTML(b, actuals)).join("");
 }
 
 function budgetRowHTML(b, actuals) {
@@ -143,7 +120,12 @@ function budgetRowHTML(b, actuals) {
   const status = budgetStatus(b, spent);
   const fillColor = status.key === "over" ? "var(--neg)" : status.key === "watch" ? "var(--warn)" : (cat.color || "var(--pos)");
   const id = String(budCatOf(b)).replace(/'/g, "\\'");
-  return `<div class="bud-row-full${String(_budDetailId) === String(budCatOf(b)) ? " active" : ""}">
+  // Edit/delete only surface in Edit mode (same pattern as Transactions/Bills).
+  const acts = _budEditMode ? `<span class="acts">
+      <button title="Edit" onclick="openBudModal('${id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
+      <button class="danger" title="Delete" onclick="deleteBud('${id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+    </span>` : `<span class="acts"></span>`;
+  return `<div class="bud-row-full${String(_budDetailId) === String(budCatOf(b)) ? " active" : ""}" data-bud-id="${budCatOf(b)}">
     <span class="bud-row-cat">
       <span class="bud-row-icon" style="background:color-mix(in oklch,${cat.color || "var(--ink-3)"} 28%,var(--bg-sunk))">${iconFor(c)}</span>
       <span><b>${c}</b><small>${budgetTypeFor(c)}</small></span>
@@ -153,27 +135,32 @@ function budgetRowHTML(b, actuals) {
     <span class="num blur ${remaining < 0 ? "neg" : "pos"}">${remaining < 0 ? "-" : ""}${fmtGBP(Math.abs(remaining))}</span>
     <span class="bud-progress-cell"><i><em style="width:${Math.min(100, pct).toFixed(0)}%;background:${fillColor}"></em></i><small>${pct.toFixed(0)}%</small></span>
     <span class="bud-status ${status.key}">${status.label}</span>
-    <button class="bud-arrow" onclick="selectBudgetDetail('${id}')" title="Open budget details" aria-label="Open budget details"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+    ${acts}
   </div>`;
 }
-function toggleBudgetListExpanded() { _budExpanded = !_budExpanded; renderBud(); }
-function selectBudgetDetail(id) { _budDetailId = id; renderBud(); }
-document.getElementById("bud-view-toggle").addEventListener("click", toggleBudgetListExpanded);
-document.getElementById("bud-status-tabs").addEventListener("click", e => {
-  const b = e.target.closest("[data-bud-filter]"); if (!b) return;
-  _budStatusFilter = b.dataset.budFilter;
-  _budExpanded = false;
+// Toggle semantics: clicking the already-selected row closes the detail panel.
+function selectBudgetDetail(id) { _budDetailId = (id != null && String(_budDetailId) === String(id)) ? null : id; renderBud(); }
+function toggleBudEditMode() {
+  _budEditMode = !_budEditMode;
+  const btn = document.getElementById("bud-edit-toggle");
+  if (btn) { btn.classList.toggle("editing", _budEditMode); btn.setAttribute("aria-pressed", String(_budEditMode)); }
   renderBud();
-});
+}
 document.getElementById("bud-sort").addEventListener("change", e => { _budSort = e.target.value; renderBud(); });
+document.getElementById("bud-edit-toggle")?.addEventListener("click", toggleBudEditMode);
+// Row click → open/close the detail panel (action buttons exempt).
+document.getElementById("bud-grid")?.addEventListener("click", e => {
+  if (e.target.closest(".acts")) return;
+  const row = e.target.closest(".bud-row-full[data-bud-id]");
+  if (row) selectBudgetDetail(row.dataset.budId);
+});
 
 function renderBudgetDetail(buds, actuals, monthTxns) {
   const panel = document.getElementById("bud-detail-panel");
+  if (!panel) return;
   const b = buds.find(x => String(budCatOf(x)) === String(_budDetailId));
-  if (!b) {
-    renderBudgetSummaryRail(panel, buds, actuals, monthTxns);
-    return;
-  }
+  // Detail-only panel: empty (and CSS-hidden) until a budget row is selected.
+  if (!b) { panel.innerHTML = ""; return; }
   const c = budCatOf(b);
   const spent = actuals[c] || 0;
   const remaining = b.amount - spent;
@@ -186,6 +173,7 @@ function renderBudgetDetail(buds, actuals, monthTxns) {
     <div class="bud-detail-title">
       <div><h2>${c}</h2><span>${budgetTypeFor(c)}</span></div>
       <span class="bud-status ${status.key}">${status.label}</span>
+      <button class="bud-detail-close" title="Close" onclick="selectBudgetDetail(null)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="bud-detail-stats">
       <div><span>Budget amount</span><b class="blur">${fmtGBP(b.amount)}</b></div>
@@ -204,49 +192,6 @@ function renderBudgetDetail(buds, actuals, monthTxns) {
     <div class="bud-detail-actions">
       <button class="btn-ghost" onclick="openBudModal('${id}')">Edit budget</button>
       <button class="btn-danger" onclick="deleteBud('${id}')">Delete budget</button>
-    </div>
-  `;
-}
-
-function renderBudgetSummaryRail(panel, buds, actuals, monthTxns) {
-  const totalBud = buds.reduce((s,b)=>s+b.amount,0);
-  const totalSpent = buds.reduce((s,b)=>s+(actuals[budCatOf(b)]||0),0);
-  const remaining = Math.max(0, totalBud - totalSpent);
-  const statusCounts = { track: 0, watch: 0, over: 0 };
-  buds.forEach(b => statusCounts[budgetStatus(b, actuals[budCatOf(b)] || 0).key]++);
-  const pct = totalBud ? Math.min(100, totalSpent / totalBud * 100) : 0;
-  const pace = budgetMonthPace().pct;
-  const expected = totalBud * (pace / 100);
-  const updates = sortedBudgets(buds, actuals).slice(0, 3);
-  panel.innerHTML = `
-    <div class="bud-rail-card">
-      <h2>Budget summary</h2>
-      <div class="bud-donut" style="--spent:${pct * 3.6}deg"><b>${fmtGBP(totalSpent,{dp:0})}</b><span>of ${fmtGBP(totalBud,{dp:0})}</span></div>
-      <div class="bud-legend">
-        <span><i class="track"></i>On track <b>${statusCounts.track}</b></span>
-        <span><i class="watch"></i>Watch <b>${statusCounts.watch}</b></span>
-        <span><i class="over"></i>Over budget <b>${statusCounts.over}</b></span>
-        <span><i class="remaining"></i>Remaining <b>${fmtGBP(remaining,{dp:0})}</b></span>
-      </div>
-    </div>
-    <div class="bud-rail-card">
-      <div class="bud-pace-head">
-        <h2>Pacing</h2>
-        <span class="bud-pace-badge ${totalSpent <= expected ? "pos" : "neg"}">${totalSpent <= expected ? "On pace" : "Ahead"}</span>
-      </div>
-      <p>You're <b class="${totalSpent <= expected ? "pos" : "neg"}">${fmtGBP(Math.abs(expected-totalSpent),{dp:0})}</b> ${totalSpent <= expected ? "below" : "ahead of"} expected pace.</p>
-      <div class="bud-pace-mini"><span style="width:${pct.toFixed(0)}%"></span><i style="left:${Math.min(100, pace).toFixed(0)}%"></i></div>
-      <div class="bud-pace-foot">
-        <span class="num blur">${fmtGBP(expected,{dp:0})}<small>Expected by today</small></span>
-        <span class="num blur bud-pace-foot-r">${fmtGBP(totalSpent,{dp:0})}<small>Actual spent</small></span>
-      </div>
-    </div>
-    <div class="bud-rail-card">
-      <h2>Recent budget updates</h2>
-      <div class="bud-update-list">${updates.map(b => {
-        const c = budCatOf(b), s = budgetStatus(b, actuals[c] || 0);
-        return `<button onclick="selectBudgetDetail('${String(c).replace(/'/g,"\\'")}')"><span>${iconFor(c)}</span><b>${c}<small>${s.label}</small></b></button>`;
-      }).join("") || `<p>No budgets yet.</p>`}</div>
     </div>
   `;
 }
@@ -319,28 +264,6 @@ function deleteBud(id) {
   });
 }
 
-function toggleBudSelected(id) { const k = String(id); if (_budSelected.has(k)) _budSelected.delete(k); else _budSelected.add(k); renderBud(); }
-function toggleBudAllSelected(checked) { if (!checked) _budSelected.clear(); renderBud(); }
-function clearBudSelection() { _budSelected.clear(); renderBud(); }
-function renderBudBulkBar() {
-  const bar = document.getElementById("bud-bulk-bar");
-  if (!bar) return;
-  bar.hidden = !_budSelected.size;
-  if (_budSelected.size) document.getElementById("bud-bulk-count").textContent = _budSelected.size;
-}
-function bulkDeleteBud() {
-  if (!_budSelected.size) return;
-  const n = _budSelected.size;
-  confirmDialog({ title: "Delete budgets?", message: `Delete ${n} budget${n>1?'s':''}? This can't be undone.`, confirmLabel: "Delete", danger: true }, () => {
-    const buds = getBudgets().filter(b => !_budSelected.has(String(b.id || b.category)));
-    lsSet("fin_budgets", buds);
-    _budSelected.clear();
-    showToast(`${n} budget${n>1?'s':''} deleted`);
-    renderAll();
-  });
-}
-
-document.getElementById("bud-bulk-del").addEventListener("click", bulkDeleteBud);
 document.getElementById("bud-m-cancel").addEventListener("click", closeBudModal);
 document.getElementById("bud-m-save").addEventListener("click", saveBud);
 document.getElementById("bud-modal").addEventListener("click", e => { if (e.target.id === "bud-modal") closeBudModal(); });

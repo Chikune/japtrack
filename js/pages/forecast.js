@@ -976,26 +976,9 @@ document.getElementById("set-cat-type").addEventListener("click", e => {
   document.querySelectorAll("#set-cat-type button").forEach(btn => btn.setAttribute("aria-pressed", btn.dataset.type === _setCatType));
   renderCatMgr();
 });
-document.getElementById("set-nw-add").addEventListener("click", addNWBucket);
-document.getElementById("set-nw-new-name").addEventListener("keydown", e => { if (e.key === "Enter") addNWBucket(); });
-document.getElementById("set-nw-reset").addEventListener("click", resetNWBuckets);
-document.getElementById("set-acct-add").addEventListener("click", addAccount);
-document.getElementById("set-acct-new").addEventListener("keydown", e => { if (e.key === "Enter") addAccount(); });
-document.getElementById("set-export").addEventListener("click", exportCSV);
-document.getElementById("set-export-json").addEventListener("click", exportJSON);
-document.getElementById("exp-all").addEventListener("change", e => {
-  const wrap = document.getElementById("exp-range-wrap");
-  wrap.style.opacity = e.target.checked ? "0.5" : "1";
-  wrap.style.pointerEvents = e.target.checked ? "none" : "auto";
-});
-// pre-fill range from earliest/latest txn dates
-(function() {
-  const all = getTxns().filter(t => t.date).map(t => t.date).sort();
-  if (all.length) {
-    document.getElementById("exp-from").value = all[0].slice(0,7);
-    document.getElementById("exp-to").value = all[all.length-1].slice(0,7);
-  }
-})();
+// NW-bucket / Accounts settings controls were removed (those live on the Balances
+// page now), and the Import & Export controls were rebuilt as a unified ticklist
+// (wired in settings.js). Only the custom-category modal wiring remains here.
 document.getElementById("cat-m-cancel").addEventListener("click", closeCustomCatModal);
 document.getElementById("cat-m-save").addEventListener("click", saveCustomCat);
 document.getElementById("cat-modal").addEventListener("click", e => { if (e.target.id === "cat-modal") closeCustomCatModal(); });
@@ -1004,7 +987,4 @@ document.getElementById("cat-m-type-seg").addEventListener("click", e => {
   _catModalType = b.dataset.type;
   document.querySelectorAll("#cat-m-type-seg button").forEach(btn => btn.setAttribute("aria-pressed", btn.dataset.type === _catModalType));
 });
-document.getElementById("set-import").addEventListener("click", () => document.getElementById("set-import-file").click());
-document.getElementById("set-import-file").addEventListener("change", e => { if (e.target.files[0]) importData(e.target.files[0]); });
-document.getElementById("set-reset").addEventListener("click", resetAll);
 

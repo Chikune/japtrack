@@ -23,6 +23,29 @@ function switchPage(name) {
   }
   _switchPageNow(name);
 }
+// Dock the shared month-picker into whichever topbar slot matches the active view, or park it.
+// Keyed on _activePage so it works for both full page switches and the Bills sub-tab
+// (which sets _activePage = "scheduled" without a page switch).
+function dockMonthPick() {
+  const mp = document.querySelector(".month-pick");
+  if (!mp) return;
+  const name = _activePage;
+  let slot = null;
+  if (name === "insights")       slot = document.querySelector(".topbar .topbar-ins-slot .month-slot");
+  else if (name === "budgets")   slot = document.querySelector(".topbar .topbar-bud-slot .month-slot");
+  else if (name === "forecast")  slot = document.querySelector(".topbar .topbar-fc-slot .month-slot");
+  else if (name === "scheduled") slot = document.querySelector(".topbar .topbar-sched-slot .month-slot");
+  if (slot && !slot.contains(mp)) slot.appendChild(mp);
+  else if (!slot) document.getElementById("month-pick-parking").appendChild(mp);
+}
+// Keep the Add-button label + month-picker in sync when a Transactions sub-tab changes
+// without a full page switch — only the Bills tab needs chrome different from the rest.
+function syncTxAddChrome() {
+  const lbl = document.getElementById("add-btn-label");
+  if (lbl) lbl.textContent = (_activePage === "scheduled") ? "Add bill" : "Add transaction";
+  dockMonthPick();
+}
+
 function _switchPageNow(name) {
   _activePage = name;
   // Entering Settings with no pending edits: refresh the snapshot so dirty-detection
@@ -34,8 +57,15 @@ function _switchPageNow(name) {
   // Tx sub-pages (expenses/income/transfers) → #page-tx
   // Accounts sub-pages (accounts/networth) → #page-accounts (with the right inner tab active)
   const ACC_SUBPAGES = { accounts: "accounts", networth: "networth" };
-  const displayPage = TX_PAGE_TYPES[name] ? "tx" : (ACC_SUBPAGES[name] ? "accounts" : name);
+  // Bills & Subscriptions ("scheduled") is now a tab inside the Transactions page.
+  const displayPage = (name === "scheduled" || TX_PAGE_TYPES[name]) ? "tx" : (ACC_SUBPAGES[name] ? "accounts" : name);
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.dataset.page === displayPage));
+  // Sync the Transactions sub-tab: jump to Bills when navigating to "scheduled", and never
+  // leave the Bills tab showing when arriving at the tx page by any other route.
+  if (displayPage === "tx" && typeof activateTxSection === "function") {
+    if (name === "scheduled") activateTxSection("bills");
+    else { const bills = document.getElementById("tx-section-bills"); if (bills && !bills.hidden) activateTxSection("transactions"); }
+  }
   // Activate the matching Accounts inner tab + sync the page heading / add button label
   if (ACC_SUBPAGES[name]) {
     const sub = ACC_SUBPAGES[name];
@@ -62,7 +92,7 @@ function _switchPageNow(name) {
   if (topAddDiv) topAddDiv.style.display = (name === "home" || name === "forecast" || name === "insights" || name === "settings" || name === "goals" || name === "help" || name === "accounts" || name === "networth") ? "none" : "";
   // Sidebar highlight: tx sub-pages (expenses/income/transfers) all map back to the
   // "transactions" sidebar item, since they're tabs within that one page.
-  const sidebarPage = (TX_PAGE_TYPES[name] && name !== "transactions") ? "transactions" : name;
+  const sidebarPage = (name === "scheduled" || (TX_PAGE_TYPES[name] && name !== "transactions")) ? "transactions" : name;
   document.querySelectorAll(".nav-item[data-page]").forEach(b => {
     if (b.dataset.page === sidebarPage) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
@@ -100,18 +130,8 @@ function _switchPageNow(name) {
       crumbs.innerHTML = `Ledger / <b>${titles[name] || "Dashboard"}</b>`;
     }
   }
-  // Relocate the month picker into the active page's slot, or park it
-  const mp = document.querySelector(".month-pick");
-  let slot;
-  if (name === "insights") slot = document.querySelector(".topbar .topbar-ins-slot .month-slot");
-  else if (name === "budgets") slot = document.querySelector(".topbar .topbar-bud-slot .month-slot");
-  else if (name === "forecast") slot = document.querySelector(".topbar .topbar-fc-slot .month-slot");
-  else if (name === "scheduled") slot = document.querySelector(".topbar .topbar-sched-slot .month-slot");
-  else slot = null;
-  if (mp) {
-    if (slot && !slot.contains(mp)) slot.appendChild(mp);
-    else if (!slot) document.getElementById("month-pick-parking").appendChild(mp);
-  }
+  // Relocate the month picker into the active page's slot, or park it.
+  dockMonthPick();
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 document.querySelectorAll(".nav-item[data-page]").forEach(btn => {
@@ -188,14 +208,12 @@ document.getElementById("settings-btn").addEventListener("click", () => switchPa
 (function wireSettingsTabs() {
   const tabs = document.getElementById("settings-tabs");
   if (!tabs) return;
-  const SECTION_IDS = ["sec-appearance","sec-buckets","sec-categories","sec-accounts","sec-data","sec-about"];
+  const SECTION_IDS = ["sec-appearance","sec-data","sec-about"];
   // Map each settings section to the renderer that fills it, so opening a tab
   // always shows fresh content even if an earlier renderAll silently failed.
-  const SECTION_RENDERERS = {
-    "sec-buckets":    () => typeof renderNWMgr   === "function" && renderNWMgr(),
-    "sec-categories": () => typeof renderCatMgr  === "function" && renderCatMgr(),
-    "sec-accounts":   () => typeof renderAcctMgr === "function" && renderAcctMgr(),
-  };
+  // (Categories moved to the Transactions page; Accounts + Net worth buckets are
+  //  managed on the Balances page — those tabs no longer live in Settings.)
+  const SECTION_RENDERERS = {};
   function showOnly(id) {
     SECTION_IDS.forEach(s => {
       const el = document.getElementById(s);

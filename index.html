@@ -63,6 +63,10 @@
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
       <span class="nav-label">Dashboard</span>
     </button>
+    <button class="nav-item" data-page="insights" data-tooltip="Reports">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 5-5"/></svg></span>
+      <span class="nav-label">Reports</span>
+    </button>
 
     <div class="nav-section">MONEY</div>
     <button class="nav-item" data-page="transactions" data-tooltip="Transactions">
@@ -75,10 +79,6 @@
     </button>
 
     <div class="nav-section">PLANNING</div>
-    <button class="nav-item" data-page="scheduled" data-tooltip="Bills &amp; Subscriptions">
-      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-      <span class="nav-label">Bills &amp; Subscriptions</span>
-    </button>
     <button class="nav-item" data-page="budgets" data-tooltip="Budgets">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
       <span class="nav-label">Budgets</span>
@@ -94,12 +94,6 @@
     <button class="nav-item" data-page="forecast" data-tooltip="Forecast">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
       <span class="nav-label">Forecast</span>
-    </button>
-
-    <div class="nav-section">ANALYSIS</div>
-    <button class="nav-item" data-page="insights" data-tooltip="Reports">
-      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 5-5"/></svg></span>
-      <span class="nav-label">Reports</span>
     </button>
 
     <div style="flex:1"></div>
@@ -366,7 +360,9 @@
       <div class="tx-toolbar">
         <nav class="tx-seg-group tx-section-tabs" id="tx-section-tabs" aria-label="View">
           <button data-tx-section="transactions" class="active">Transactions</button>
+          <button data-tx-section="bills">Bills &amp; Subscriptions</button>
           <button data-tx-section="imports">Imports &amp; Rules</button>
+          <button data-tx-section="categories">Categories</button>
         </nav>
       </div>
 
@@ -503,17 +499,63 @@
           </div>
         </div>
       </section>
+
+      <section id="tx-section-categories" hidden>
+        <div class="card set-section">
+          <h2>Categories</h2>
+          <div class="desc">Manage which expense and income categories appear</div>
+          <div id="audit-banner-slot"></div>
+          <div class="set-row" style="grid-template-columns:220px 1fr">
+            <div class="lab">Type</div>
+            <div class="seg" id="set-cat-type">
+              <button aria-pressed="true" data-type="exp">Expense</button>
+              <button data-type="inc">Income</button>
+            </div>
+          </div>
+          <div class="cat-mgr" id="set-cat-list"></div>
+        </div>
+      </section>
+
+      <section id="tx-section-bills" hidden>
+        <div class="sched-layout">
+          <div class="card sched-list-card">
+            <div class="card-head">
+              <div><h2>Planned bills</h2><div class="sub" id="sched-sub">No recurring items</div></div>
+              <div class="btn-row">
+                <button class="sched-post-due" id="sched-post-due" hidden title="Create a transaction for every bill that's due and not yet posted">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l4 4L19 6"/></svg>
+                  <span>Post due</span>
+                </button>
+                <button class="btn-primary" id="sched-add">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                  Add
+                </button>
+                <button class="sched-edit-toggle" id="sched-edit-toggle" aria-pressed="false">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                  Edit
+                </button>
+              </div>
+            </div>
+            <div id="sched-sections"></div>
+          </div>
+          <div class="card sched-cal-card">
+            <div class="card-head">
+              <h2 id="sched-cal-month">—</h2>
+              <div class="sched-kpis" id="sched-kpis"></div>
+            </div>
+            <div class="sched-cal-hdr" id="sched-cal-hdr"></div>
+            <div class="sched-cal" id="sched-cal"></div>
+          </div>
+        </div>
+      </section>
     </div>
 
     <div class="page" id="page-budgets" data-page="budgets">
       <div class="page-head bud-page-head">
         <div>
           <h1>Budgets</h1>
-          <div class="sub" id="bud-sub">Plan, track and manage your spending</div>
         </div>
       </div>
-
-      <div class="bud-kpi-grid" id="bud-kpis"></div>
 
       <div class="bud-page-grid">
         <div class="bud-main-stack">
@@ -521,29 +563,25 @@
             <div class="bud-section-head">
               <div>
                 <h2>Your budgets</h2>
+                <div class="sub" id="bud-sub">Plan, track and manage your spending</div>
               </div>
               <div class="bud-list-tools">
+                <div class="sched-kpis" id="bud-kpis-inline"></div>
                 <select id="bud-sort" class="bucket-sel" aria-label="Sort budgets">
                   <option value="priority">Priority</option>
                   <option value="category">Category</option>
                   <option value="spent">Highest spent</option>
                 </select>
+                <button class="sched-edit-toggle" id="bud-edit-toggle" aria-pressed="false">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                  Edit
+                </button>
               </div>
-            </div>
-            <div class="bud-status-tabs" id="bud-status-tabs">
-              <button data-bud-filter="all" class="active">All</button>
-              <button data-bud-filter="track">On track</button>
-              <button data-bud-filter="watch">Watch</button>
-              <button data-bud-filter="over">Over budget</button>
             </div>
             <div class="bud-list-head">
               <span>Category</span><span>Budget</span><span>Spent</span><span>Remaining</span><span>Progress</span><span>Status</span><span></span>
             </div>
             <div id="bud-grid"></div>
-            <div class="bud-card-foot" id="bud-list-foot">
-              <span id="bud-row-count"></span>
-              <button class="btn-ghost bud-view-toggle" id="bud-view-toggle" hidden>View all budgets</button>
-            </div>
           </div>
 
           <div class="card" id="unbud-card" style="display:none">
@@ -557,44 +595,7 @@
           </div>
         </div>
 
-        <aside class="card bud-detail-panel" id="bud-detail-panel">
-          <div class="bud-detail-empty">Select a budget to review pacing, recent transactions, and edit options.</div>
-        </aside>
-      </div>
-
-      <!-- Budget allocation planner (moved here from Forecast) -->
-      <div class="card" id="fc-alloc-card" style="margin-top:14px">
-        <div class="card-head">
-          <div>
-            <h2>Budget allocation plan</h2>
-            <div class="sub" id="fc-alloc-sub">Decide where each pound of your income should go — visualise your target split.</div>
-          </div>
-          <button class="btn-ghost-sm" id="fc-alloc-add" style="display:none">+ Add slice</button>
-        </div>
-        <div class="bp-layout">
-          <div id="fc-alloc-donut" class="bp-donut"></div>
-          <div id="fc-alloc-rows" class="bp-rows"></div>
-        </div>
-        <div id="fc-alloc-summary" class="bp-summary"></div>
-      </div>
-    </div>
-
-    <div class="page" id="page-scheduled" data-page="scheduled">
-      <div class="page-head">
-        <div><h1>Bills &amp; Subscriptions</h1><div class="sub" id="sched-sub">No recurring items</div></div>
-      </div>
-
-      <div class="page-stat-bar">
-        <div class="pstat-title"><span id="sched-cal-month"></span></div>
-        <div class="pstat-item"><span class="pstat-lab">In</span><span class="num blur pstat-val pos" id="sched-sum-in">£0</span></div>
-        <div class="pstat-item"><span class="pstat-lab">Out</span><span class="num blur pstat-val neg" id="sched-sum-out">£0</span></div>
-        <div class="pstat-item"><span class="pstat-lab">Net</span><span class="num blur pstat-val" id="sched-sum-net">£0</span></div>
-        <div class="pstat-item push"><span class="pstat-lab">Next due</span><span class="pstat-val muted" id="sched-sum-next">—</span></div>
-      </div>
-
-      <div class="sched-body">
-        <div id="sched-sections" class="sched-body-main"></div>
-        <aside class="sched-panel" id="sched-panel"></aside>
+        <aside class="card bud-detail-panel" id="bud-detail-panel"></aside>
       </div>
     </div>
 
@@ -948,9 +949,6 @@
       <!-- Sticky section nav — click to jump, highlights as you scroll -->
       <nav class="settings-tabs" id="settings-tabs">
         <button data-target="sec-appearance" class="active">Appearance</button>
-        <button data-target="sec-buckets">Net worth buckets</button>
-        <button data-target="sec-categories">Categories</button>
-        <button data-target="sec-accounts">Accounts</button>
         <button data-target="sec-data">Import &amp; Export</button>
         <button data-target="sec-about">About</button>
       </nav>
@@ -1092,161 +1090,55 @@
         </div>
       </div>
 
-      <div class="card set-section" id="sec-buckets" style="margin-bottom:18px">
-        <h2>Net worth buckets</h2>
-        <div class="desc">Categories used in net-worth snapshots (Current Account, Savings, ISA, etc.). Edit a name or colour inline; the trash icon removes a bucket.</div>
-        <div id="set-nw-list" style="margin-top:14px"></div>
-        <div class="set-add-row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line-2)">
-          <input type="text" id="set-nw-new-name" placeholder="New bucket name (e.g. Crypto)" class="set-input" style="width:220px" />
-          <input type="color" id="set-nw-new-color" class="color-swatch-inp" value="#7fb069" />
-          <button class="btn-primary" id="set-nw-add">Add bucket</button>
-          <button class="btn-ghost" id="set-nw-reset">Restore defaults</button>
-        </div>
-      </div>
-
-      <div class="card set-section" id="sec-categories" style="margin-bottom:18px">
-        <h2>Categories</h2>
-        <div class="desc">Manage which expense and income categories appear</div>
-        <div id="audit-banner-slot"></div>
-        <div class="set-row" style="grid-template-columns:220px 1fr">
-          <div class="lab">Type</div>
-          <div class="seg" id="set-cat-type">
-            <button aria-pressed="true" data-type="exp">Expense</button>
-            <button data-type="inc">Income</button>
-          </div>
-        </div>
-        <div class="cat-mgr" id="set-cat-list"></div>
-      </div>
-
-      <div class="card set-section" id="sec-accounts" style="margin-bottom:18px">
-        <h2>Accounts</h2>
-        <div class="desc">Bank accounts used for transactions</div>
-        <div id="set-acct-list" style="margin-top:12px"></div>
-        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
-          <input type="text" id="set-acct-new" placeholder="Add new account..." class="set-input" style="max-width:260px" />
-          <button class="btn-primary" id="set-acct-add">Add</button>
-        </div>
-      </div>
-
       <div class="card set-section" id="sec-data" style="margin-bottom:18px">
         <h2>Import &amp; Export</h2>
-        <div class="desc">Download, backup or restore each section independently</div>
+        <div class="desc">Tick the data you want, then export, import or reset it together.</div>
 
-        <!-- Transactions -->
-        <div class="set-row">
-          <div class="lab">Transactions<small>CSV export / import</small></div>
-          <div style="flex:1;min-width:0">
-            <div class="btn-row" style="margin-bottom:6px">
-              <label style="display:flex;align-items:center;gap:6px;font-size:12.5px">
-                <input type="checkbox" id="exp-all" checked style="width:14px;height:14px;accent-color:var(--ink)"> All time
-              </label>
+        <!-- Shared options: format + date range -->
+        <div class="ie-toolbar">
+          <div class="ie-tool">
+            <span class="ie-tool-lab">Format</span>
+            <div class="seg ie-format" id="ie-format">
+              <button type="button" data-fmt="json" aria-pressed="true">JSON</button>
+              <button type="button" data-fmt="csv">CSV</button>
             </div>
-            <div class="export-controls" id="exp-range-wrap" style="opacity:0.5;pointer-events:none">
-              <label>From <input type="month" id="exp-from"></label>
-              <label>To <input type="month" id="exp-to"></label>
-            </div>
-            <div class="btn-row" style="margin-top:8px;flex-wrap:wrap;gap:6px">
-              <button class="btn-primary" id="set-export">Export CSV</button>
-              <button class="btn-ghost" id="set-export-tmpl">Download template</button>
-              <button class="btn-ghost" id="set-import">Import CSV / JSON…</button>
-              <button class="btn-danger-ghost" id="set-reset-txns" title="Delete all transactions">Reset</button>
-              <input type="file" id="set-import-file" accept=".json,application/json,.csv,text/csv" style="display:none">
+          </div>
+          <div class="ie-tool">
+            <span class="ie-tool-lab">Range</span>
+            <label class="ie-alltime"><input type="checkbox" id="ie-all-time" checked> All time</label>
+            <div class="ie-range" id="ie-range">
+              <label>From <input type="month" id="ie-from"></label>
+              <label>To <input type="month" id="ie-to"></label>
             </div>
           </div>
         </div>
 
-        <!-- Accounts -->
-        <div class="set-row">
-          <div class="lab">Accounts<small>JSON · list of account names</small></div>
-          <div class="btn-row">
-            <button class="btn-ghost" id="set-export-accounts">Export</button>
-            <button class="btn-ghost" id="set-import-accounts">Import…</button>
-            <button class="btn-danger-ghost" id="set-reset-accounts" title="Remove all accounts">Reset</button>
-            <input type="file" id="set-import-accounts-file" accept=".json" style="display:none">
+        <!-- Section ticklist -->
+        <div class="ie-table">
+          <div class="ie-row ie-head">
+            <span class="ie-allbox"><input type="checkbox" id="ie-select-all" aria-label="Select all sections"></span>
+            <span class="ie-name">Section</span>
+            <span class="ie-count">Items</span>
+            <span class="ie-flag-col"></span>
           </div>
+          <div class="ie-list" id="ie-list"></div>
         </div>
 
-        <!-- Budgets -->
-        <div class="set-row">
-          <div class="lab">Budgets<small>JSON</small></div>
-          <div class="btn-row">
-            <button class="btn-ghost" id="set-export-budgets">Export</button>
-            <button class="btn-ghost" id="set-import-budgets">Import…</button>
-            <button class="btn-danger-ghost" id="set-reset-budgets" title="Delete all budgets">Reset</button>
-            <input type="file" id="set-import-budgets-file" accept=".json" style="display:none">
-          </div>
+        <!-- Shared actions -->
+        <div class="ie-actions">
+          <button class="btn-primary" id="ie-export">Export selected</button>
+          <button class="btn-ghost" id="ie-import">Import…</button>
+          <button class="btn-danger-ghost" id="ie-reset">Reset selected</button>
+          <input type="file" id="ie-import-file" accept=".json,.csv" style="display:none">
         </div>
 
-        <!-- Net worth snapshots -->
-        <div class="set-row">
-          <div class="lab">Snapshots<small>CSV or JSON</small></div>
-          <div class="btn-row">
-            <button class="btn-ghost" id="set-export-nw-csv">Export CSV</button>
-            <button class="btn-ghost" id="set-export-nw-json">Export JSON</button>
-            <button class="btn-ghost" id="set-import-nw">Import…</button>
-            <button class="btn-danger-ghost" id="set-reset-nw" title="Delete all snapshots">Reset</button>
-            <input type="file" id="set-import-nw-file" accept=".json,.csv" style="display:none">
+        <!-- Danger zone -->
+        <div class="ie-danger">
+          <div class="ie-danger-txt">
+            <b>Reset all data</b>
+            <small>Erases every transaction, budget, snapshot and setting on this device. Cannot be undone.</small>
           </div>
-        </div>
-
-        <!-- Scheduled -->
-        <div class="set-row">
-          <div class="lab">Bills &amp; Subscriptions<small>JSON</small></div>
-          <div class="btn-row">
-            <button class="btn-ghost" id="set-export-sched">Export</button>
-            <button class="btn-ghost" id="set-import-sched">Import…</button>
-            <button class="btn-danger-ghost" id="set-reset-sched" title="Delete all bills / subscriptions">Reset</button>
-            <input type="file" id="set-import-sched-file" accept=".json" style="display:none">
-          </div>
-        </div>
-
-        <!-- Goals -->
-        <div class="set-row">
-          <div class="lab">Goals<small>JSON</small></div>
-          <div class="btn-row">
-            <button class="btn-ghost" id="set-export-goals">Export</button>
-            <button class="btn-ghost" id="set-import-goals">Import…</button>
-            <button class="btn-danger-ghost" id="set-reset-goals" title="Delete all goals">Reset</button>
-            <input type="file" id="set-import-goals-file" accept=".json" style="display:none">
-          </div>
-        </div>
-
-        <!-- Projects (stored under fin_holidays for legacy reasons) -->
-        <div class="set-row">
-          <div class="lab">Projects<small>JSON · holidays &amp; multi-stage projects</small></div>
-          <div class="btn-row">
-            <button class="btn-ghost" id="set-export-projects">Export</button>
-            <button class="btn-ghost" id="set-import-projects">Import…</button>
-            <button class="btn-danger-ghost" id="set-reset-projects" title="Delete all projects">Reset</button>
-            <input type="file" id="set-import-projects-file" accept=".json" style="display:none">
-          </div>
-        </div>
-
-        <!-- Forecast items -->
-        <div class="set-row">
-          <div class="lab">Forecast items<small>JSON</small></div>
-          <div class="btn-row">
-            <button class="btn-ghost" id="set-export-forecast">Export</button>
-            <button class="btn-ghost" id="set-import-forecast">Import…</button>
-            <button class="btn-danger-ghost" id="set-reset-forecast" title="Delete all forecast items">Reset</button>
-            <input type="file" id="set-import-forecast-file" accept=".json" style="display:none">
-          </div>
-        </div>
-
-        <!-- Full backup -->
-        <div class="set-row">
-          <div class="lab">Full backup<small>all data as JSON</small></div>
-          <div class="btn-row">
-            <button class="btn-primary" id="set-export-json">Export backup</button>
-            <button class="btn-ghost" id="set-import-full">Restore backup…</button>
-            <input type="file" id="set-import-full-file" accept=".json" style="display:none">
-          </div>
-        </div>
-
-        <!-- Reset -->
-        <div class="set-row">
-          <div class="lab" style="color:var(--neg)">Reset all<small>delete every transaction, budget, snapshot, setting</small></div>
-          <div class="btn-row"><button class="btn-danger" id="set-reset">Reset all data</button></div>
+          <button class="btn-danger" id="ie-reset-all">Reset all data</button>
         </div>
       </div>
 
@@ -1716,12 +1608,6 @@
       <button class="btn-primary" id="tx-bulk-accts-save">Apply</button>
     </div>
   </div>
-</div>
-
-<div class="bulk-bar" id="bud-bulk-bar" hidden>
-  <span><b id="bud-bulk-count">0</b> selected</span>
-  <button class="danger" id="bud-bulk-del">Delete</button>
-  <button onclick="clearBudSelection()">Cancel</button>
 </div>
 
 <!-- ══ CONFIRM DIALOG ══ -->

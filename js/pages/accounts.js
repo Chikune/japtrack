@@ -213,6 +213,7 @@ let _accMonthPage = null;    // 0-based window index; null = default to latest
 let _accEditMode = false;    // account-edit mode (toolbar Edit button)
 let _accSelected = null;     // (legacy) selected account id
 let _accTypes = [];          // ordered type subheadings (draft)
+let _accDeletedIds = [];     // accounts deleted this edit session — pruned from settings.accounts on Save
 function _accPageCount() { return Math.max(1, Math.ceil((_accDraft?.length || 0) / ACC_WIN)); }
 
 function _accBucketType(id) {
@@ -247,6 +248,7 @@ function _accInitDraft() {
       _accDraft.push({ month: `${MONTHS[m]} ${y}`, locked: snap ? !!snap.locked : false, vals });
     }
   }
+  _accDeletedIds = [];
   _accDirty = false;
 }
 
@@ -423,7 +425,16 @@ function saveAccChanges() {
     if (b.note) s.acctMemo[b.id] = b.note; else delete s.acctMemo[b.id];
   });
   s.acctTypes = _accTypes.slice();
+  // Balances is the sole account manager — prune explicitly-deleted accounts from the legacy
+  // settings.accounts list so they vanish from transaction/scheduled pickers too. Only names
+  // deleted this session and not re-added are removed (transaction-orphan accounts are preserved).
+  if (_accDeletedIds.length && Array.isArray(s.accounts)) {
+    const live = new Set(_accBuckets.map(b => b.id));
+    const gone = new Set(_accDeletedIds.filter(id => !live.has(id)));
+    if (gone.size) s.accounts = s.accounts.filter(a => !gone.has(a));
+  }
   lsSet("fin_settings", s);
+  _accDeletedIds = [];
   if (typeof rebuildNWCats === "function") rebuildNWCats();
   // Persist only months that actually have a balance (auto-generated empty months aren't saved).
   const entries = _accDraft
@@ -531,7 +542,7 @@ function _accRenameInline(oldId, newName) {
   renderAccGrid();
 }
 function _accDeleteAccount(id) {
-  const go = () => { _accBuckets = _accBuckets.filter(b => b.id !== id); _accDraft.forEach(m => { delete m.vals[id]; }); _accSetDirty(); renderAccGrid(); };
+  const go = () => { _accBuckets = _accBuckets.filter(b => b.id !== id); _accDraft.forEach(m => { delete m.vals[id]; }); if (!_accDeletedIds.includes(id)) _accDeletedIds.push(id); _accSetDirty(); renderAccGrid(); };
   if (typeof confirmDialog === "function") confirmDialog({ title: "Delete account?", message: `Delete "${id}"? Its balances are removed when you Save changes.`, confirmLabel: "Delete", cancelLabel: "Cancel", danger: true }, go);
   else go();
 }

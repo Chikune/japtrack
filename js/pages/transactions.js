@@ -871,20 +871,39 @@ if (legacyCatBtn) legacyCatBtn.addEventListener("click", e => {
   openTxFilterPop("tx-cat-btn", items, _txAllCats, () => { _txAllPage = 0; renderTxAll(); });
 });
 
+// Activate a Transactions sub-tab (Transactions · Bills & Subscriptions · Imports & Rules ·
+// Categories). Exposed globally so switchPage("scheduled") can jump straight to the Bills tab.
+// The Bills tab embeds the old Bills & Subscriptions page, so it borrows that page's chrome:
+// _activePage flips to "scheduled" (Add button → openSchedModal, label "Add bill") and the
+// shared month-picker docks into the topbar's scheduled slot via syncTxAddChrome().
+function activateTxSection(section) {
+  const tabs = document.getElementById("tx-section-tabs");
+  if (!tabs) return;
+  tabs.querySelectorAll("button").forEach(btn => btn.classList.toggle("active", btn.dataset.txSection === section));
+  document.getElementById("tx-section-transactions").hidden = section !== "transactions";
+  document.getElementById("tx-section-bills").hidden       = section !== "bills";
+  document.getElementById("tx-section-imports").hidden     = section !== "imports";
+  document.getElementById("tx-section-categories").hidden  = section !== "categories";
+  // Type + time-range filters only apply to the transactions list.
+  const filters = document.getElementById("tx-toolbar-filters");
+  if (filters) filters.hidden = section !== "transactions";
+  if (section === "bills") {
+    _activePage = "scheduled";
+    if (typeof renderSched === "function") renderSched();
+  } else if (typeof _activePage !== "undefined" && _activePage === "scheduled") {
+    _activePage = "transactions";   // leaving Bills → back to the regular Transactions chrome
+  }
+  if (section === "imports"    && typeof renderMerchantRules === "function") renderMerchantRules();
+  if (section === "categories" && typeof renderCatMgr      === "function") renderCatMgr();
+  if (typeof syncTxAddChrome === "function") syncTxAddChrome();
+}
 (function wireTxSectionTabs() {
   const tabs = document.getElementById("tx-section-tabs");
   if (!tabs) return;
   tabs.addEventListener("click", e => {
     const b = e.target.closest("[data-tx-section]");
     if (!b) return;
-    const section = b.dataset.txSection;
-    tabs.querySelectorAll("button").forEach(btn => btn.classList.toggle("active", btn === b));
-    document.getElementById("tx-section-transactions").hidden = section !== "transactions";
-    document.getElementById("tx-section-imports").hidden = section !== "imports";
-    // Type + time-range filters only apply to the transactions list — hide on Imports.
-    const filters = document.getElementById("tx-toolbar-filters");
-    if (filters) filters.hidden = section !== "transactions";
-    if (section === "imports" && typeof renderMerchantRules === "function") renderMerchantRules();
+    activateTxSection(b.dataset.txSection);
   });
 })();
 

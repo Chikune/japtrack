@@ -386,7 +386,7 @@ body.tauri .main { height: 100%; }
 .main:has(#page-forecast.active) .topbar .fc-add-wrap { display: inline-flex; }
 /* Scheduled (Bills) month picker + Goals secondary link — shown only on their pages */
 .topbar-sched-slot { display: none; align-items: center; flex-shrink: 0; }
-.main:has(#page-scheduled.active) .topbar-sched-slot { display: flex; }
+.main:has(#tx-section-bills:not([hidden])) .topbar-sched-slot { display: flex; }
 .topbar-ins-slot { display: none; align-items: center; flex-shrink: 0; margin-right: 8px; }
 .topbar-ins-slot .month-slot { display: flex; align-items: center; }
 .topbar-ins-slot .month-pick { height: 34px; margin: 0; }

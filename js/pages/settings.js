@@ -228,12 +228,15 @@ function renderSettings() {
   // Refresh export-range bounds from live data
   const dates = getTxns().filter(t => t.date).map(t => t.date).sort();
   if (dates.length) {
-    document.getElementById("exp-from").value = dates[0].slice(0,7);
-    document.getElementById("exp-to").value = dates[dates.length-1].slice(0,7);
+    const f = document.getElementById("ie-from"), t = document.getElementById("ie-to");
+    if (f && !f.value) f.value = dates[0].slice(0,7);
+    if (t && !t.value) t.value = dates[dates.length-1].slice(0,7);
   }
   renderNWMgr();
   renderCatMgr();
   renderAcctMgr();
+  if (typeof renderIEList === "function") renderIEList();
+  if (typeof _ieWire === "function") _ieWire();
 }
 
 function renderCatMgr() {
@@ -444,6 +447,7 @@ function renderAcctMgr() {
   const s = getSettings();
   const accts = s.accounts || [];
   const list = document.getElementById("set-acct-list");
+  if (!list) return;  // Accounts tab removed — Balances page is the account manager now.
   if (!accts.length) {
     list.innerHTML = cardEmpty(`No accounts yet — add one below.`);
     return;
@@ -582,40 +586,7 @@ function csvEscape(v) {
   const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
 }
-function exportCSV() {
-  const all = getTxns().slice().sort((a,b) => (a.date||"") < (b.date||"") ? -1 : 1);
-  const allTime = document.getElementById("exp-all").checked;
-  let list = all;
-  if (!allTime) {
-    const from = document.getElementById("exp-from").value;
-    const to = document.getElementById("exp-to").value;
-    if (!from || !to) { showToast("Pick a from/to month or check All time"); return; }
-    const fromMs = new Date(from+"-01T00:00:00").getTime();
-    const [ty, tm] = to.split("-").map(Number);
-    const toMs = new Date(ty, tm, 1).getTime();  // exclusive end (start of next month)
-    list = all.filter(t => {
-      if (!t.date) return false;
-      const d = new Date(t.date+"T00:00:00").getTime();
-      return d >= fromMs && d < toMs;
-    });
-  }
-  if (!list.length) { showToast("No transactions in that range"); return; }
-  const cols = ["date","type","description","category","account","fromAccount","toAccount","amount","notes"];
-  const rows = [cols.join(",")];
-  list.forEach(t => {
-    rows.push(cols.map(c => csvEscape(t[c])).join(","));
-  });
-  const csv = rows.join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  const stamp = allTime ? "all" : `${document.getElementById("exp-from").value}_to_${document.getElementById("exp-to").value}`;
-  a.href = url;
-  a.download = `ledger-txns-${stamp}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast(`Exported ${list.length} txn${list.length>1?'s':''}`);
-}
+
 // Marker written into every full backup so Restore can verify the file
 // is genuinely a Japtrack backup before it replaces anything.
 const BACKUP_MARKER = "japtrack-backup";
@@ -2977,131 +2948,6 @@ function resetAll() {
   });
 }
 
-/* ── CSV Template ── */
-function exportCSVTemplate() {
-  const headers = ["date","type","description","category","account","fromAccount","toAccount","amount","notes"];
-  const sample  = ["2026-05-01","out","Coffee Shop","Food & Drink","Monzo","","","4.50","optional annotation"];
-  const csv = [headers.join(","), sample.join(",")].join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = "ledger-import-template.csv"; a.click();
-  URL.revokeObjectURL(url);
-  showToast("Template downloaded");
-}
-
-/* ── Per-section export helpers ── */
-function exportSectionJSON(getter, filename) {
-  const data = getter();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-  showToast("Exported");
-}
-/**
- * Per-section reset — wipe just one slice of data (transactions, bills, goals…)
- * without touching everything else. Goes through `lsSet` so the change flows
- * through the same Store + backup machinery as any other write. Accounts are a
- * sub-field of settings, so handled separately.
- */
-function resetSection(key, label, opts = {}) {
-  confirmDialog({
-    title: `Reset ${label.toLowerCase()}?`,
-    message: opts.message || `This deletes all ${label.toLowerCase()}. Other data (transactions, budgets, etc.) is kept. Cannot be undone — export first if you might need it back.`,
-    confirmLabel: "Delete",
-    danger: true,
-  }, () => {
-    if (key === "fin_settings.accounts") {
-      const s = getSettings();
-      s.accounts = [];
-      lsSet("fin_settings", s);
-    } else {
-      lsSet(key, []);
-    }
-    showToast(`${label} reset`);
-    renderAll();
-    if (typeof resyncApprAfterImport === "function") resyncApprAfterImport();
-  });
-}
-
-/**
- * Accounts import — accepts either a flat array of strings ["Monzo","Amex"]
- * OR the same shape exported (so users can round-trip a backup). Replaces the
- * current settings.accounts list. We don't auto-rename anything in
- * transactions; this only edits the canonical "places money lives" list.
- */
-function importAccountsFromJSON(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      let parsed = JSON.parse(e.target.result);
-      // Accept ["a","b"] or { accounts: ["a","b"] } for friendliness.
-      if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.accounts)) parsed = parsed.accounts;
-      if (!Array.isArray(parsed)) throw new Error("expected array");
-      const cleaned = [...new Set(parsed.map(x => String(x || "").trim()).filter(Boolean))];
-      confirmDialog({
-        title: "Import accounts?",
-        message: `This will REPLACE your accounts list with ${cleaned.length} account${cleaned.length===1?'':'s'}. Existing transactions keep their account names — this only edits the list shown in Settings → Accounts.`,
-        confirmLabel: "Replace",
-        danger: true,
-      }, () => {
-        const s = getSettings();
-        s.accounts = cleaned;
-        lsSet("fin_settings", s);
-        showToast(`Imported ${cleaned.length} account${cleaned.length===1?'':'s'}`);
-        renderAll();
-        if (typeof resyncApprAfterImport === "function") resyncApprAfterImport();
-      });
-    } catch { showToast("Import failed — invalid JSON"); }
-  };
-  reader.readAsText(file);
-}
-
-function importSectionJSON(key, file, label) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!Array.isArray(data)) throw new Error("expected array");
-      confirmDialog({ title:`Import ${label}?`, message:`This will REPLACE your current ${label.toLowerCase()}.`, confirmLabel:"Replace", danger:true }, () => {
-        lsSet(key, data);
-        // If we just replaced the transactions, sweep the new set for
-        // Repayments/Subscriptions and auto-create scheduled items for any
-        // that don't already have one.
-        let extraMsg = "";
-        if (key === "fin_txns" && typeof ensureBillsFromTxns === "function") {
-          const n = ensureBillsFromTxns(Array.isArray(data) ? data : []);
-          if (n) extraMsg = ` · ${n} new bill${n===1?'':'s'}`;
-        }
-        showToast(`${label} imported${extraMsg}`);
-        renderAll();
-        resyncApprAfterImport();
-      });
-    } catch { showToast("Import failed — invalid JSON"); }
-  };
-  reader.readAsText(file);
-}
-
-/* ── NW Snapshot CSV export ── */
-function exportNWCSV() {
-  const entries = nwSnapshotsSorted();
-  if (!entries.length) { showToast("No snapshots to export"); return; }
-  const allCats = [...new Set(entries.flatMap(e => (e.allocations||[]).map(a => a.cat)))];
-  const headers = ["month", ...allCats, "total"];
-  const rows = [headers.join(",")];
-  entries.forEach(e => {
-    const alloc = {};
-    (e.allocations||[]).forEach(a => { alloc[a.cat] = a.value || 0; });
-    const total = allCats.reduce((s,c) => s + (alloc[c]||0), 0);
-    rows.push([e.month, ...allCats.map(c => (alloc[c]||0).toFixed(2)), total.toFixed(2)].join(","));
-  });
-  const blob = new Blob([rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = `ledger-snapshots-${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  showToast(`Exported ${entries.length} snapshots`);
-}
-
 /* ── Budget: copy last month's actuals ── */
 document.getElementById("bud-copy-prev").addEventListener("click", () => {
   const [py, pm] = prevMonth(_viewMonth.y, _viewMonth.m);
@@ -3124,70 +2970,210 @@ document.getElementById("bud-copy-prev").addEventListener("click", () => {
   });
 });
 
-/* ── New settings event listeners ── */
-document.getElementById("set-export-tmpl").addEventListener("click", exportCSVTemplate);
-document.getElementById("set-export-budgets").addEventListener("click", () => exportSectionJSON(getBudgets, `ledger-budgets-${new Date().toISOString().slice(0,10)}.json`));
-document.getElementById("set-import-budgets").addEventListener("click", () => document.getElementById("set-import-budgets-file").click());
-document.getElementById("set-import-budgets-file").addEventListener("change", e => { if (e.target.files[0]) importSectionJSON("fin_budgets", e.target.files[0], "Budgets"); e.target.value=""; });
-document.getElementById("set-export-nw-csv").addEventListener("click", exportNWCSV);
-document.getElementById("set-export-nw-json").addEventListener("click", () => exportSectionJSON(getNWEntries, `ledger-snapshots-${new Date().toISOString().slice(0,10)}.json`));
-document.getElementById("set-import-nw").addEventListener("click", () => document.getElementById("set-import-nw-file").click());
-document.getElementById("set-import-nw-file").addEventListener("change", e => { if (e.target.files[0]) importSectionJSON("fin_nw_entries", e.target.files[0], "Snapshots"); e.target.value=""; });
-document.getElementById("set-export-sched").addEventListener("click", () => exportSectionJSON(getRecurring, `ledger-scheduled-${new Date().toISOString().slice(0,10)}.json`));
-document.getElementById("set-import-sched").addEventListener("click", () => document.getElementById("set-import-sched-file").click());
-document.getElementById("set-import-sched-file").addEventListener("change", e => { if (e.target.files[0]) importSectionJSON("fin_recurring", e.target.files[0], "Scheduled"); e.target.value=""; });
-document.getElementById("set-export-goals").addEventListener("click", () => exportSectionJSON(getGoals, `ledger-goals-${new Date().toISOString().slice(0,10)}.json`));
-document.getElementById("set-import-goals").addEventListener("click", () => document.getElementById("set-import-goals-file").click());
-document.getElementById("set-import-goals-file").addEventListener("change", e => { if (e.target.files[0]) importSectionJSON("fin_goals", e.target.files[0], "Goals"); e.target.value=""; });
-document.getElementById("set-export-forecast").addEventListener("click", () => exportSectionJSON(getForecasts, `ledger-forecast-${new Date().toISOString().slice(0,10)}.json`));
-document.getElementById("set-import-forecast").addEventListener("click", () => document.getElementById("set-import-forecast-file").click());
-document.getElementById("set-import-forecast-file").addEventListener("change", e => { if (e.target.files[0]) importSectionJSON("fin_forecast", e.target.files[0], "Forecast"); e.target.value=""; });
-// Accounts (just the names list — stored under settings.accounts)
-document.getElementById("set-export-accounts").addEventListener("click", () => {
-  const accounts = (getSettings().accounts || []);
-  if (!accounts.length) { showToast("No accounts to export"); return; }
-  exportSectionJSON(() => accounts, `ledger-accounts-${new Date().toISOString().slice(0,10)}.json`);
-});
-document.getElementById("set-import-accounts").addEventListener("click", () => document.getElementById("set-import-accounts-file").click());
-document.getElementById("set-import-accounts-file").addEventListener("change", e => { const f = e.target.files[0]; e.target.value=""; if (f) importAccountsFromJSON(f); });
+/* ──────────────────────────────────────────────────────────────────────────
+   Import & Export — unified ticklist
+   One checklist of data sections + a shared Export / Import / Reset toolbar,
+   replacing the old ~30 per-section buttons. Format (JSON combined vs CSV
+   per-file) and an optional date range are global toggles that apply to the
+   ticked sections. Accounts live under settings.accounts, so they're special-
+   cased everywhere a localStorage key is written.
+   ────────────────────────────────────────────────────────────────────────── */
+const IE_SECTIONS = [
+  { id: "txns",      label: "Transactions",          key: "fin_txns",             getter: () => getTxns(),                    dated: "date"  },
+  { id: "accounts",  label: "Accounts",              key: "fin_settings.accounts", getter: () => (getSettings().accounts || []) },
+  { id: "budgets",   label: "Budgets",               key: "fin_budgets",          getter: () => getBudgets()                  },
+  { id: "snapshots", label: "Snapshots",             key: "fin_nw_entries",       getter: () => getNWEntries(),               dated: "month" },
+  { id: "sched",     label: "Bills & Subscriptions", key: "fin_recurring",        getter: () => getRecurring()                },
+  { id: "goals",     label: "Goals",                 key: "fin_goals",            getter: () => getGoals()                    },
+  { id: "projects",  label: "Projects",              key: "fin_holidays",         getter: () => getHolidays()                 },
+  { id: "forecast",  label: "Forecast items",        key: "fin_forecast",         getter: () => getForecasts()                },
+];
+let _ieFormat = "json";   // "json" | "csv"
 
-// Per-section reset buttons (Reset just this slice of data — others are untouched)
-document.getElementById("set-reset-txns").addEventListener("click", () =>
-  resetSection("fin_txns", "Transactions"));
-document.getElementById("set-reset-accounts").addEventListener("click", () =>
-  resetSection("fin_settings.accounts", "Accounts",
-    { message: "This empties your accounts list. Existing transactions keep their account names. Cannot be undone." }));
-document.getElementById("set-reset-budgets").addEventListener("click", () =>
-  resetSection("fin_budgets", "Budgets"));
-document.getElementById("set-reset-nw").addEventListener("click", () =>
-  resetSection("fin_nw_entries", "Snapshots"));
-document.getElementById("set-reset-sched").addEventListener("click", () =>
-  resetSection("fin_recurring", "Bills & Subscriptions"));
-document.getElementById("set-reset-goals").addEventListener("click", () =>
-  resetSection("fin_goals", "Goals"));
-document.getElementById("set-export-projects").addEventListener("click", () => exportSectionJSON(getHolidays, `ledger-projects-${new Date().toISOString().slice(0,10)}.json`));
-document.getElementById("set-import-projects").addEventListener("click", () => document.getElementById("set-import-projects-file").click());
-document.getElementById("set-import-projects-file").addEventListener("change", e => { if (e.target.files[0]) importSectionJSON("fin_holidays", e.target.files[0], "Projects"); e.target.value=""; });
-document.getElementById("set-reset-projects").addEventListener("click", () =>
-  resetSection("fin_holidays", "Projects"));
-document.getElementById("set-reset-forecast").addEventListener("click", () =>
-  resetSection("fin_forecast", "Forecast items"));
+function _ieSelected() {
+  return IE_SECTIONS.filter(s => document.querySelector(`.ie-sec[data-sec="${s.id}"]`)?.checked);
+}
+// {all, ok, fromMs, toMs} from the All-time checkbox + From/To month inputs.
+function _ieRange() {
+  if (document.getElementById("ie-all-time")?.checked) return { all: true, ok: true };
+  const from = document.getElementById("ie-from")?.value;
+  const to   = document.getElementById("ie-to")?.value;
+  if (!from || !to) return { all: false, ok: false };
+  const fromMs = new Date(from + "-01T00:00:00").getTime();
+  const [ty, tm] = to.split("-").map(Number);
+  const toMs = new Date(ty, tm, 1).getTime();   // exclusive — start of the month after "to"
+  return { all: false, ok: true, fromMs, toMs };
+}
+// A section's data, date-filtered when it's a dated section and a range is set.
+function _ieData(s, range) {
+  const arr = (s.getter() || []).slice();
+  if (range.all || !s.dated) return arr;
+  return arr.filter(it => {
+    const t = s.dated === "date"
+      ? (it.date ? new Date(it.date + "T00:00:00").getTime() : NaN)
+      : (it.month ? monthToTime(it.month) : NaN);
+    return !isNaN(t) && t >= range.fromMs && t < range.toMs;
+  });
+}
+function _ieDownload(filename, text, mime) {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+/* ── CSV builders (tailored for txns/snapshots, generic for the rest) ── */
+function _ieTxnsCSV(list) {
+  const cols = ["date","type","description","category","account","fromAccount","toAccount","amount","notes"];
+  return [cols.join(","), ...list.map(t => cols.map(c => csvEscape(t[c])).join(","))].join("\r\n");
+}
+function _ieSnapshotsCSV(list) {
+  const cats = [...new Set(list.flatMap(e => (e.allocations || []).map(a => a.cat)))];
+  const rows = [["month", ...cats, "total"].join(",")];
+  list.forEach(e => {
+    const m = {}; (e.allocations || []).forEach(a => m[a.cat] = a.value);
+    const total = cats.reduce((sum, c) => sum + (Number(m[c]) || 0), 0);
+    rows.push([csvEscape(e.month), ...cats.map(c => csvEscape(m[c] ?? "")), csvEscape(total)].join(","));
+  });
+  return rows.join("\r\n");
+}
+function _ieGenericCSV(arr) {
+  if (!arr.length) return "";
+  if (arr.every(x => typeof x !== "object" || x === null)) {   // primitives, e.g. account-name strings
+    return ["value", ...arr.map(v => csvEscape(v))].join("\r\n");
+  }
+  const keys = [...new Set(arr.flatMap(o => Object.keys(o || {})))];
+  const cell = v => (v && typeof v === "object") ? csvEscape(JSON.stringify(v)) : csvEscape(v);
+  return [keys.join(","), ...arr.map(o => keys.map(k => cell((o || {})[k])).join(","))].join("\r\n");
+}
+function _ieSectionCSV(s, data) {
+  if (s.id === "txns")      return _ieTxnsCSV(data);
+  if (s.id === "snapshots") return _ieSnapshotsCSV(data);
+  return _ieGenericCSV(data);
+}
 
-document.getElementById("set-import-full").addEventListener("click", () => document.getElementById("set-import-full-file").click());
-document.getElementById("set-import-full-file").addEventListener("change", e => {
-  const file = e.target.files[0]; e.target.value="";
-  if (!file) return;
+function ieExport() {
+  const sel = _ieSelected();
+  if (!sel.length) { showToast("Tick at least one section to export"); return; }
+  const range = _ieRange();
+  if (!range.ok) { showToast("Pick a From and To month, or tick All time"); return; }
+  const stamp = new Date().toISOString().slice(0,10);
+  if (_ieFormat === "json") {
+    const out = { app: "Japtrack", kind: "partial-export", exported_at: new Date().toISOString(), sections: {} };
+    sel.forEach(s => { out.sections[s.id] = _ieData(s, range); });
+    _ieDownload(`ledger-export-${stamp}.json`, JSON.stringify(out, null, 2), "application/json");
+    showToast(`Exported ${sel.length} section${sel.length > 1 ? "s" : ""}`);
+  } else {
+    let n = 0;
+    sel.forEach(s => {
+      const csv = _ieSectionCSV(s, _ieData(s, range));
+      if (csv) { _ieDownload(`ledger-${s.id}-${stamp}.csv`, csv, "text/csv;charset=utf-8"); n++; }
+    });
+    showToast(n ? `Exported ${n} CSV file${n > 1 ? "s" : ""}` : "Nothing to export in that range");
+  }
+}
+
+function ieImport(file) {
+  // A bank-style CSV only makes sense for transactions — hand it to the adder.
+  if (file.name.toLowerCase().endsWith(".csv")) { importData(file); return; }
   const reader = new FileReader();
-  reader.onload = ev => {
-    confirmDialog({ title:"Restore backup?", message:"This will REPLACE all current data.", confirmLabel:"Restore", danger:true }, () => {
-      try {
-        importJSONText(ev.target.result);
-        rebuildCatBy(); showToast("Backup restored"); renderAll(); resyncApprAfterImport();
-      } catch { showToast("Failed — invalid backup file"); }
+  reader.onload = e => {
+    let parsed;
+    try { parsed = JSON.parse(e.target.result); }
+    catch { showToast(`"${file.name}" isn't valid JSON`); return; }
+    // A full backup (Store export) → whole-app restore.
+    if (typeof isRestorableBackup === "function" && isRestorableBackup(parsed) && !parsed.sections) {
+      confirmDialog({ title: "Restore full backup?", message: `This REPLACES ALL current data with "${file.name}". Can't be undone.`, confirmLabel: "Replace all", danger: true }, () => {
+        try { Store.importAll(parsed); rebuildCatBy(); showToast("Backup restored"); renderAll(); resyncApprAfterImport(); }
+        catch { showToast("Restore failed — file may be corrupt"); }
+      });
+      return;
+    }
+    // Otherwise a partial export ({sections:{…}}) or a bare {id:[…]} map.
+    const sections = parsed && parsed.sections ? parsed.sections
+                   : (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : null;
+    const present = sections ? IE_SECTIONS.filter(s => Array.isArray(sections[s.id])) : [];
+    if (!present.length) { showToast(`No known sections found in "${file.name}"`); return; }
+    const ticked = new Set(_ieSelected().map(s => s.id));
+    const target = ticked.size ? present.filter(s => ticked.has(s.id)) : present;
+    if (!target.length) { showToast("None of the ticked sections are in that file"); return; }
+    confirmDialog({ title: "Import sections?", message: `This REPLACES your ${target.map(s => s.label).join(", ")} with the file's contents.`, confirmLabel: "Replace", danger: true }, () => {
+      let extra = "";
+      target.forEach(s => {
+        const data = sections[s.id];
+        if (s.key === "fin_settings.accounts") { const st = getSettings(); st.accounts = data; lsSet("fin_settings", st); }
+        else {
+          lsSet(s.key, data);
+          if (s.id === "txns" && typeof ensureBillsFromTxns === "function") { const nb = ensureBillsFromTxns(data); if (nb) extra = ` · ${nb} new bill${nb === 1 ? "" : "s"}`; }
+        }
+      });
+      rebuildCatBy();
+      showToast(`Imported ${target.length} section${target.length > 1 ? "s" : ""}${extra}`);
+      renderAll(); resyncApprAfterImport();
     });
   };
   reader.readAsText(file);
-});
+}
+
+function ieReset() {
+  const sel = _ieSelected();
+  if (!sel.length) { showToast("Tick at least one section to reset"); return; }
+  confirmDialog({
+    title: `Reset ${sel.length} section${sel.length > 1 ? "s" : ""}?`,
+    message: `This deletes: ${sel.map(s => s.label).join(", ")}. Other data is kept. Can't be undone — export first if you might need it back.`,
+    confirmLabel: "Delete", danger: true,
+  }, () => {
+    sel.forEach(s => {
+      if (s.key === "fin_settings.accounts") { const st = getSettings(); st.accounts = []; lsSet("fin_settings", st); }
+      else lsSet(s.key, []);
+    });
+    showToast(`Reset ${sel.length} section${sel.length > 1 ? "s" : ""}`);
+    renderAll();
+    if (typeof resyncApprAfterImport === "function") resyncApprAfterImport();
+  });
+}
+
+// Populate the section ticklist with live item counts. Re-run whenever Settings opens.
+function renderIEList() {
+  const list = document.getElementById("ie-list"); if (!list) return;
+  const checked = new Set([...list.querySelectorAll(".ie-sec:checked")].map(c => c.dataset.sec)); // preserve ticks across re-render
+  list.innerHTML = IE_SECTIONS.map(s => {
+    const n = (s.getter() || []).length;
+    return `<label class="ie-row">
+      <input type="checkbox" class="ie-sec" data-sec="${s.id}"${checked.has(s.id) ? " checked" : ""}>
+      <span class="ie-name">${s.label}</span>
+      <span class="ie-count">${n} item${n === 1 ? "" : "s"}</span>
+      ${s.dated ? '<span class="ie-flag" title="Honours the date range above">dated</span>' : ""}
+    </label>`;
+  }).join("");
+  const all = document.getElementById("ie-select-all"); if (all) all.checked = false;
+}
+
+// Wire the toolbar once (the #sec-data block persists in the DOM).
+function _ieWire() {
+  const root = document.getElementById("sec-data"); if (!root || root._ieWired) return; root._ieWired = true;
+  document.getElementById("ie-format")?.addEventListener("click", e => {
+    const b = e.target.closest("[data-fmt]"); if (!b) return;
+    _ieFormat = b.dataset.fmt;
+    document.querySelectorAll("#ie-format button").forEach(x => x.setAttribute("aria-pressed", x.dataset.fmt === _ieFormat));
+  });
+  const allTime = document.getElementById("ie-all-time");
+  const rangeWrap = document.getElementById("ie-range");
+  const syncRange = () => { const on = !!allTime?.checked; if (rangeWrap) { rangeWrap.style.opacity = on ? "0.45" : "1"; rangeWrap.style.pointerEvents = on ? "none" : "auto"; } };
+  allTime?.addEventListener("change", syncRange); syncRange();
+  document.getElementById("ie-select-all")?.addEventListener("change", e => {
+    document.querySelectorAll(".ie-sec").forEach(c => { c.checked = e.target.checked; });
+  });
+  // Keep the header "select all" box in sync with individual ticks.
+  document.getElementById("ie-list")?.addEventListener("change", () => {
+    const boxes = [...document.querySelectorAll(".ie-sec")];
+    const all = document.getElementById("ie-select-all");
+    if (all) all.checked = boxes.length > 0 && boxes.every(c => c.checked);
+  });
+  document.getElementById("ie-export")?.addEventListener("click", ieExport);
+  document.getElementById("ie-import")?.addEventListener("click", () => document.getElementById("ie-import-file").click());
+  document.getElementById("ie-import-file")?.addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) ieImport(f); });
+  document.getElementById("ie-reset")?.addEventListener("click", ieReset);
+  document.getElementById("ie-reset-all")?.addEventListener("click", resetAll);
+}
 
 
 /* ── Appearance: save bar wiring ──
