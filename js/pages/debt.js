@@ -4,6 +4,7 @@
    Debts persist in fin_debts; strategy + extra payment in fin_debt_settings.
 ════════════════════════════════════════ */
 let _debtEditId = null;
+let _debtEditMode = false;   // table Edit toggle — reveals edit/bill/delete buttons on rows
 
 /* ── Payoff simulation ──────────────────────────────────────────────────────
  * Month-by-month amortisation. Every debt accrues monthly interest (APR/12),
@@ -143,18 +144,21 @@ function renderDebt() {
   const plan = document.getElementById("debt-plan");
   const chartSec = document.getElementById("debt-chart-section");
 
+  const tblHead = document.querySelector("#page-debt .debt-table-head");
   if (!debts.length) {
-    if (listSub) listSub.textContent = "";
+    if (listSub) listSub.textContent = "Add your credit cards, loans or overdrafts";
+    if (tblHead) tblHead.style.display = "none";
     if (list) list.innerHTML = `<div class="page-stub"><h3>No debts added yet</h3><div>Add your credit cards, loans, or overdrafts to see your fastest route to debt-free.</div></div>`;
     if (kpis) kpis.innerHTML = "";
     if (planSec) planSec.hidden = true;
     if (chartSec) chartSec.hidden = true;
     return;
   }
+  if (tblHead) tblHead.style.display = "";
 
   const totalBal = debts.reduce((s, d) => s + (+d.balance || 0), 0);
   const totalMin = debts.reduce((s, d) => s + (+d.min || 0), 0);
-  if (listSub) listSub.textContent = `${debts.length} debt${debts.length > 1 ? "s" : ""} · ${fmtGBP(totalBal)} owed`;
+  if (listSub) listSub.textContent = `${debts.length} debt${debts.length > 1 ? "s" : ""} · ${fmtGBP(totalBal)} owed · ${fmtGBP(totalMin)}/mo minimum`;
 
   const sim = simulateDebtPayoff(debts, st.strategy, st.extra);
   // Compare with the other strategy + with mins-only, to show savings
@@ -203,27 +207,26 @@ function renderDebt() {
   if (list) {
     list.innerHTML = ordered.map((d, idx) => {
       const r = sim.perDebt.find(x => x.id === d.id);
-      const payoff = r && r.paidMonth ? _fmtMonths(r.paidMonth) : (r && r.bal > 0 ? "—" : "—");
+      const cleared = r && r.paidMonth
+        ? `<b>${_fmtMonthYear(_addMonths(new Date(), r.paidMonth))}</b><small>${_fmtMonths(r.paidMonth)}</small>`
+        : `<b class="neg">never</b><small>payment too low</small>`;
       const color = d.color || "var(--accent)";
       const focus = idx === 0 ? `<span class="debt-focus-badge" title="Next to attack with your extra payment">focus</span>` : "";
       const safeId = String(d.id).replace(/'/g, "\\'");
-      return `<div class="debt-card" style="--debt-color:${color}">
-        <div class="debt-card-bar"></div>
-        <div class="debt-card-main">
-          <div class="debt-card-top">
-            <span class="debt-card-name">${_esc(d.name)}</span>
-            ${focus}
-            <button class="debt-card-edit" onclick="openDebtModal('${safeId}')" title="Edit debt" aria-label="Edit ${_esc(d.name)}">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-            </button>
-          </div>
-          <div class="debt-card-stats">
-            <div class="debt-stat"><span class="debt-stat-v">${fmtGBP(+d.balance || 0)}</span><span class="debt-stat-l">balance</span></div>
-            <div class="debt-stat"><span class="debt-stat-v">${(+d.apr || 0).toFixed(1)}%</span><span class="debt-stat-l">APR</span></div>
-            <div class="debt-stat"><span class="debt-stat-v">${fmtGBP(+d.min || 0)}</span><span class="debt-stat-l">min/mo</span></div>
-            <div class="debt-stat"><span class="debt-stat-v">${payoff}</span><span class="debt-stat-l">paid off in</span></div>
-          </div>
-        </div>
+      // Edit mode: pencil, "create bill" (Bills & Subs tie-in), and delete.
+      const acts = _debtEditMode ? `<span class="acts">
+          <button title="Edit" onclick="openDebtModal('${safeId}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
+          <button title="Add to Bills &amp; Subscriptions (monthly repayment bill)" onclick="debtCreateBill('${safeId}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 13v5M9.5 15.5h5"/></svg></button>
+          <button class="danger" title="Delete" onclick="deleteDebtRow('${safeId}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+        </span>` : `<span class="acts"></span>`;
+      return `<div class="debt-row">
+        <span class="debt-row-name"><i class="debt-dot" style="background:${color}"></i><b>${_esc(d.name)}</b>${focus}</span>
+        <span class="num blur">${fmtGBP(+d.balance || 0)}</span>
+        <span class="num">${(+d.apr || 0).toFixed(1)}%</span>
+        <span class="num blur">${fmtGBP(+d.min || 0)}</span>
+        <span class="debt-row-cleared">${cleared}</span>
+        <span class="num blur neg">${r ? fmtGBP(r.interestPaid, { dp: 0 }) : "—"}</span>
+        ${acts}
       </div>`;
     }).join("");
   }
@@ -411,11 +414,54 @@ function deleteDebtFromModal() {
     confirmDialog({ title: "Delete this debt?", message: "It will be removed from your payoff plan.", confirmLabel: "Delete", danger: true }, run);
   } else { run(); }
 }
+// Inline delete from the table's Edit mode (no modal round-trip).
+function deleteDebtRow(id) {
+  confirmDialog({ title: "Delete this debt?", message: "It will be removed from your payoff plan.", confirmLabel: "Delete", danger: true }, () => {
+    setDebts(getDebts().filter(x => String(x.id) !== String(id)));
+    renderDebt();
+  });
+}
+function toggleDebtEditMode() {
+  _debtEditMode = !_debtEditMode;
+  const btn = document.getElementById("debt-edit-toggle");
+  if (btn) { btn.classList.toggle("editing", _debtEditMode); btn.setAttribute("aria-pressed", String(_debtEditMode)); }
+  renderDebt();
+}
+
+/* ── Bills & Subscriptions tie-in ───────────────────────────────────────────
+   Creates a monthly "Repayments" bill from a debt: amount = the debt's minimum
+   payment, total = current balance (so the Bills repayment progress bar tracks
+   it as you post each month). Dedupe by description. */
+function debtCreateBill(id) {
+  const d = getDebts().find(x => String(x.id) === String(id));
+  if (!d) return;
+  if (!(+d.min > 0)) { showToast("Set a minimum monthly payment on this debt first"); return; }
+  const recs = getRecurring();
+  if (recs.some(r => (r.description || "").toLowerCase() === (d.name || "").toLowerCase())) {
+    showToast(`A bill called "${d.name}" already exists`); return;
+  }
+  confirmDialog({
+    title: "Add to Bills & Subscriptions?",
+    message: `Creates a monthly Repayments bill: "${d.name}" · ${fmtGBP(+d.min, { dp: 2, minDp: 0 })}/mo on the 1st, tracking ${fmtGBP(+d.balance, { dp: 0 })} outstanding. You can edit the due day on the Bills tab.`,
+    confirmLabel: "Create bill",
+  }, () => {
+    recs.push({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      description: d.name, type: "out", amount: +d.min, day: 1,
+      period: "monthly", category: "Repayments", account: "",
+      total: Math.max(0, +d.balance || 0), paid: 0,
+    });
+    lsSet("fin_recurring", recs);
+    showToast(`"${d.name}" added to Bills & Subscriptions`);
+    renderAll();
+  });
+}
 
 /* ── Wire UI ────────────────────────────────────────────────────────────── */
 (function wireDebt() {
   const add = document.getElementById("debt-add-btn");
   if (add) add.addEventListener("click", () => openDebtModal(null));
+  document.getElementById("debt-edit-toggle")?.addEventListener("click", toggleDebtEditMode);
   const save = document.getElementById("debt-m-save");
   if (save) save.addEventListener("click", saveDebtFromModal);
   const cancel = document.getElementById("debt-m-cancel");

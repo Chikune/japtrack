@@ -607,7 +607,13 @@
         </div>
       </div>
 
-      <!-- Tab: Accounts -->
+      <!-- View picker: Balances grid vs Transfers & Interest -->
+      <nav class="tx-section-tabs acc-section-tabs" id="acc-section-tabs" aria-label="Balances view">
+        <button data-acc-view="balances" class="active">Balances</button>
+        <button data-acc-view="flows">Transfers &amp; Interest</button>
+      </nav>
+
+      <!-- View: Balances grid -->
       <div class="acc-tab-panel" id="acc-tab-accounts">
         <div class="acc-body">
           <div class="acc-body-main">
@@ -618,11 +624,25 @@
             <div class="card acc-grid-card">
               <div class="acc-grid-wrap" id="acc-grid"></div>
             </div>
-            <div class="card acc-tfr-card">
-              <div class="acc-tfr-head"><h2>Transfers</h2><span id="acc-tfr-sub"></span></div>
-              <div class="acc-tfr-wrap" id="acc-transfers"></div>
-            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- View: Transfers (2/3) + Interest earned (1/3) -->
+      <div class="acc-tab-panel acc-flows" id="acc-tab-flows" style="display:none">
+        <div class="card acc-tfr-card acc-tfr-2of3">
+          <div class="acc-tfr-head">
+            <h2>Transfers</h2><span id="acc-tfr-sub"></span>
+            <select id="acc-tfr-filter" class="bucket-sel acc-tfr-filter" aria-label="Filter transfers by account"></select>
+          </div>
+          <div class="acc-tfr-wrap" id="acc-transfers"></div>
+        </div>
+        <div class="card acc-tfr-card acc-int-1of3">
+          <div class="acc-tfr-head">
+            <h2>Interest earned</h2><span id="acc-int-sub">balance growth not explained by your transactions</span>
+            <button id="acc-int-picker" class="acc-int-picker" type="button" aria-haspopup="true">All accounts ▾</button>
+          </div>
+          <div class="acc-tfr-wrap" id="acc-interest"></div>
         </div>
       </div>
 
@@ -725,8 +745,25 @@
 
       <!-- Debt list -->
       <section class="debt-section">
-        <div class="debt-section-head"><h2>Your debts</h2><span class="debt-section-sub" id="debt-list-sub"></span></div>
-        <div class="debt-list" id="debt-list"></div>
+        <div class="card debt-list-card">
+          <div class="debt-list-head-row">
+            <div><h2>Your debts</h2><div class="sub" id="debt-list-sub"></div></div>
+            <div class="btn-row">
+              <button class="btn-primary" id="debt-add-btn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Add
+              </button>
+              <button class="sched-edit-toggle" id="debt-edit-toggle" aria-pressed="false">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                Edit
+              </button>
+            </div>
+          </div>
+          <div class="debt-table-head">
+            <span>Debt</span><span>Balance</span><span>APR</span><span>Min / mo</span><span>Cleared by</span><span>Interest cost</span><span></span>
+          </div>
+          <div id="debt-list"></div>
+        </div>
       </section>
 
       <!-- Payoff schedule / order -->

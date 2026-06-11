@@ -70,8 +70,18 @@ function _switchPageNow(name) {
   if (ACC_SUBPAGES[name]) {
     const sub = ACC_SUBPAGES[name];
     document.querySelectorAll("#acc-tabs button").forEach(b => b.classList.toggle("active", b.dataset.accTab === sub));
-    document.getElementById("acc-tab-accounts").style.display = (sub === "accounts") ? "" : "none";
     document.getElementById("acc-tab-networth").style.display = (sub === "networth") ? "" : "none";
+    const secTabs = document.getElementById("acc-section-tabs");
+    if (sub === "networth") {
+      document.getElementById("acc-tab-accounts").style.display = "none";
+      const f = document.getElementById("acc-tab-flows"); if (f) f.style.display = "none";
+      if (secTabs) secTabs.hidden = true;
+    } else {
+      // Accounts sub-page: show the Balances/Transfers picker, default to the grid view.
+      if (secTabs) secTabs.hidden = false;
+      if (typeof setAccView === "function") setAccView("balances");
+      else document.getElementById("acc-tab-accounts").style.display = "";
+    }
   }
   // Topbar Add button is context-aware — it opens the snapshot modal on the
   // Balances / Net worth page, so label it "Add Snapshot" there (and reset to

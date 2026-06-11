@@ -4,6 +4,10 @@
 
 let _accViewIdx = null;    // null = latest snapshot; number = sorted index
 let _accSelectedCat = null;
+let _accView = "balances"; // 'balances' (grid) | 'flows' (transfers + interest)
+let _accTfrFilter = "";    // account name to filter transfers by ('' = all)
+let _accIntAccts = [];     // accounts with interest data (populated by renderAccInterest)
+function _accIntHiddenSet() { return new Set((typeof getSettings === "function" ? getSettings().acctIntHidden : null) || []); }
 
 const ACC_ICONS = {
   "Current Account": "C",
@@ -108,6 +112,123 @@ function _accTrend(catId, count = 7) {
 function renderAccountsTab() {
   renderAccGrid();
   renderAccTransfers();
+  renderAccInterest();
+}
+
+// Switch between the Balances grid and the Transfers & Interest view.
+function setAccView(view) {
+  _accView = (view === "flows") ? "flows" : "balances";
+  const grid = document.getElementById("acc-tab-accounts");
+  const flows = document.getElementById("acc-tab-flows");
+  if (grid) grid.style.display = _accView === "balances" ? "" : "none";
+  if (flows) flows.style.display = _accView === "flows" ? "" : "none";
+  document.querySelectorAll("#acc-section-tabs button").forEach(b =>
+    b.classList.toggle("active", b.dataset.accView === _accView));
+  if (_accView === "flows") { renderAccTransfers(); renderAccInterest(); }
+  else renderAccGrid();
+}
+
+/* ── Derived interest ─────────────────────────────────────────────────────
+   Between two consecutive snapshots, whatever balance growth your logged
+   transactions DON'T explain is interest (or fees, when negative):
+     interest = bal(cur) − bal(prev) − netFlow(prev..cur]
+   netFlow counts income (+), expenses (−) and transfer legs (±) on the
+   account in the months after `prev` up to and including `cur`. Derived
+   purely from data the user already enters — no rates, no new inputs. */
+function _accNetFlow(acct, monthKeys) {
+  let net = 0;
+  (typeof getTxns === "function" ? getTxns() : []).forEach(t => {
+    if (!monthKeys.has(monthKeyStr(t.date))) return;
+    const ty = normType(t);
+    const amt = Math.abs(Number(t.amount) || 0);
+    if (ty === "transfer") {
+      if (t.toAccount === acct) net += amt;
+      if (t.fromAccount === acct) net -= amt;
+    } else if (t.account === acct) {
+      net += ty === "in" ? amt : -amt;
+    }
+  });
+  return net;
+}
+// Month keys strictly after `fromMonth` up to and including `toMonth` ("June 2026" labels).
+function _accMonthKeysBetween(fromMonth, toMonth) {
+  const keys = new Set();
+  const a = new Date(monthToTime(fromMonth)), b = new Date(monthToTime(toMonth));
+  let y = a.getFullYear(), m = a.getMonth();
+  const endY = b.getFullYear(), endM = b.getMonth();
+  while (y < endY || (y === endY && m < endM)) {
+    m++; if (m > 11) { m = 0; y++; }
+    keys.add(monthKey(y, m));
+  }
+  return keys;
+}
+function renderAccInterest() {
+  const wrap = document.getElementById("acc-interest");
+  if (!wrap) return;
+  const entries = nwSnapshotsSorted();
+  if (entries.length < 2) {
+    wrap.innerHTML = `<div class="acc-tfr-empty">Needs at least two monthly snapshots — once you've saved a second month, interest shows up here automatically.</div>`;
+    return;
+  }
+  const latestTime = monthToTime(entries[entries.length - 1].month);
+  const yearAgo = (() => { const d = new Date(latestTime); d.setMonth(d.getMonth() - 11); return d.getTime(); })();
+  const accts = NW_CATS.map(c => c.id);
+  let rows = [];
+  accts.forEach(acct => {
+    let last = null, last12 = 0, all = 0, bal12 = [], covered = 0;
+    for (let i = 1; i < entries.length; i++) {
+      const prev = entries[i - 1], cur = entries[i];
+      const balPrev = _accValue(prev, acct), balCur = _accValue(cur, acct);
+      if (Math.abs(balPrev) < 0.005 && Math.abs(balCur) < 0.005) continue;  // account not in use yet
+      const keys = _accMonthKeysBetween(prev.month, cur.month);
+      const interest = balCur - balPrev - _accNetFlow(acct, keys);
+      covered++;
+      all += interest;
+      if (monthToTime(cur.month) >= yearAgo) { last12 += interest; bal12.push(balCur); }
+      last = { interest, label: cur.month };
+    }
+    if (!covered) return;
+    // Rough effective annual rate from the last 12 months vs the average balance.
+    const avgBal = bal12.length ? bal12.reduce((s, v) => s + v, 0) / bal12.length : 0;
+    const rate = avgBal > 50 ? (last12 / avgBal) * (12 / Math.min(12, bal12.length)) * 100 : null;
+    rows.push({ acct, last, last12, all, rate });
+  });
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="acc-tfr-empty">No account has two snapshots with a balance yet.</div>`;
+    _accIntAccts = [];
+    const pk = document.getElementById("acc-int-picker"); if (pk) pk.style.display = "none";
+    return;
+  }
+  rows.sort((a, b) => b.all - a.all);
+  // Account picker: user chooses which accounts to show here (a current account's
+  // "interest" is just tracking noise, so they can hide it). Eligible list = every
+  // account with interest data; hidden ones live in settings.acctIntHidden.
+  _accIntAccts = rows.map(r => r.acct);
+  const hidden = _accIntHiddenSet();
+  const visible = rows.filter(r => !hidden.has(r.acct));
+  const pk = document.getElementById("acc-int-picker");
+  if (pk) {
+    pk.style.display = "";
+    pk.textContent = (visible.length === rows.length ? "All accounts" : `${visible.length} of ${rows.length}`) + " ▾";
+  }
+  if (!visible.length) {
+    wrap.innerHTML = `<div class="acc-tfr-empty">All accounts hidden — use the picker above to show some.</div>`;
+    return;
+  }
+  rows = visible;
+  const fmtI = v => Math.abs(v) < 0.005
+    ? `<span style="color:var(--ink-4)">—</span>`
+    : `<span class="num blur" style="color:${v > 0 ? "var(--pos)" : "var(--neg)"}">${v > 0 ? "+" : "−"}${fmtGBP(Math.abs(v), { dp: 2 })}</span>`;
+  wrap.innerHTML = `<table class="acc-tfr-table">
+    <thead><tr><th>Account</th><th>Latest (${_accEsc(rows[0]?.last?.label || "")})</th><th>Last 12 months</th><th>All time</th><th class="acc-tfr-amth">≈ Rate</th></tr></thead>
+    <tbody>${rows.map(r => `<tr class="acc-tfr-row">
+      <td class="acc-tfr-merch"><strong>${_accEsc(r.acct)}</strong></td>
+      <td>${fmtI(r.last ? r.last.interest : 0)}</td>
+      <td>${fmtI(r.last12)}</td>
+      <td>${fmtI(r.all)}</td>
+      <td class="acc-tfr-amt">${(r.rate != null && isFinite(r.rate) && Math.abs(r.rate) < 50 && Math.abs(r.last12) >= 0.005) ? `<span class="num blur">${r.rate.toFixed(1)}%</span> <small style="color:var(--ink-4)">p.a.</small>` : `<span style="color:var(--ink-4)">—</span>`}</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
 }
 
 // Read-only list of transfer transactions (money moved between Balances accounts).
@@ -115,12 +236,30 @@ function renderAccTransfers() {
   const wrap = document.getElementById("acc-transfers");
   if (!wrap) return;
   const sub = document.getElementById("acc-tfr-sub");
-  const tfrs = (typeof getTxns === "function" ? getTxns() : [])
+  const allTfrs = (typeof getTxns === "function" ? getTxns() : [])
     .filter(t => normType(t) === "transfer")
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  if (sub) sub.textContent = tfrs.length ? `${tfrs.length} transfer${tfrs.length === 1 ? "" : "s"}` : "";
+
+  // Account dropdown — built from the accounts actually seen in transfers.
+  const sel = document.getElementById("acc-tfr-filter");
+  if (sel) {
+    const accts = [...new Set(allTfrs.flatMap(t => [t.fromAccount, t.toAccount]).filter(Boolean))].sort();
+    if (_accTfrFilter && !accts.includes(_accTfrFilter)) _accTfrFilter = "";   // stale filter → reset
+    sel.innerHTML = `<option value="">All accounts</option>` +
+      accts.map(a => `<option value="${_accEsc(a)}"${a === _accTfrFilter ? " selected" : ""}>${_accEsc(a)}</option>`).join("");
+    sel.value = _accTfrFilter;
+    sel.style.display = accts.length ? "" : "none";
+  }
+
+  const tfrs = _accTfrFilter
+    ? allTfrs.filter(t => t.fromAccount === _accTfrFilter || t.toAccount === _accTfrFilter)
+    : allTfrs;
+
+  if (sub) sub.textContent = tfrs.length
+    ? `${tfrs.length} transfer${tfrs.length === 1 ? "" : "s"}${_accTfrFilter ? " · " + _accEsc(_accTfrFilter) : ""}`
+    : "";
   if (!tfrs.length) {
-    wrap.innerHTML = `<div class="acc-tfr-empty">No transfers yet — transfers you add in Transactions appear here.</div>`;
+    wrap.innerHTML = `<div class="acc-tfr-empty">${_accTfrFilter ? `No transfers involving ${_accEsc(_accTfrFilter)}.` : "No transfers yet — transfers you add in Transactions appear here."}</div>`;
     return;
   }
   const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—";
@@ -942,4 +1081,45 @@ function deleteAccSnap(idx) {
   document.getElementById("acc-snap-mgr-add")?.addEventListener("click", () => { closeAccSnapMgr(); openNWModal(null); });
   document.getElementById("acc-snap-mgr")?.addEventListener("click", e => { if (e.target.id === "acc-snap-mgr") closeAccSnapMgr(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !document.getElementById("acc-snap-mgr")?.hidden) closeAccSnapMgr(); });
+})();
+
+// Checklist popover: pick which accounts appear in the Interest earned table.
+function _accIntTogglePop(anchor) {
+  if (document.getElementById("acc-pop")) { _accClosePops(); return; }
+  _accClosePops();
+  if (!_accIntAccts.length) return;
+  const hidden = _accIntHiddenSet();
+  const pop = document.createElement("div");
+  pop.className = "acc-pop"; pop.id = "acc-pop";
+  pop.innerHTML = `<label>Show accounts</label>` +
+    _accIntAccts.map(a => `<label class="acc-pop-check"><input type="checkbox" data-acct="${_accEsc(a)}"${hidden.has(a) ? "" : " checked"}> ${_accEsc(a)}</label>`).join("") +
+    `<div class="acc-pop-row"><button class="acc-pop-cancel" id="acc-int-showall">Show all</button></div>`;
+  _accMountPop(pop, anchor);
+  pop.addEventListener("change", e => {
+    const cb = e.target.closest("input[data-acct]"); if (!cb) return;
+    const s = getSettings(); const set = new Set(s.acctIntHidden || []);
+    if (cb.checked) set.delete(cb.dataset.acct); else set.add(cb.dataset.acct);
+    s.acctIntHidden = [...set]; lsSet("fin_settings", s);
+    renderAccInterest();
+  });
+  pop.querySelector("#acc-int-showall")?.addEventListener("click", () => {
+    const s = getSettings(); s.acctIntHidden = []; lsSet("fin_settings", s);
+    renderAccInterest(); _accClosePops();
+  });
+}
+
+// Balances view picker (Balances grid ↔ Transfers & Interest) + transfers account filter.
+(function wireAccView() {
+  document.getElementById("acc-section-tabs")?.addEventListener("click", e => {
+    const b = e.target.closest("[data-acc-view]"); if (!b) return;
+    setAccView(b.dataset.accView);
+  });
+  document.getElementById("acc-tfr-filter")?.addEventListener("change", e => {
+    _accTfrFilter = e.target.value || "";
+    renderAccTransfers();
+  });
+  document.getElementById("acc-int-picker")?.addEventListener("click", e => {
+    e.stopPropagation();
+    _accIntTogglePop(e.currentTarget);
+  });
 })();
