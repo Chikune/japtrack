@@ -1764,7 +1764,7 @@ function renderBankImpList() {
     }
     const sign = r.type === "in" ? "+" : "−";
     const amtCls = r.type === "in" ? "in" : "out";
-    const ruleTag = r.fromUserRule ? '<span class="rule-tag" title="Matched a saved merchant rule">rule</span>' : '';
+    const ruleTag = r.fromUserRule ? '<span class="rule-tag" title="Already a saved merchant rule">✓ Saved rule</span>' : '';
     const dupTag = r.isDupe ? '<span class="dupe-tag">dup</span>' : '';
     const refundTagFlat = r.isRefund ? '<span class="refund-tag" title="Paired with an original charge — cancels in spending breakdown">↩ refund</span>' : '';
     const confidence = bankImpConfidence(r);
@@ -1858,7 +1858,7 @@ function renderBankImpGroupedList() {
     }
     const sign = g.type === "in" ? "+" : "−";
     const amtCls = g.type === "in" ? "in" : "out";
-    const ruleTag = g.anyFromUserRule ? '<span class="rule-tag" title="At least one row matched a saved merchant rule">rule</span>' : '';
+    const ruleTag = g.anyFromUserRule ? '<span class="rule-tag" title="Already a saved merchant rule">✓ Saved rule</span>' : '';
     // Per-group "remember as rule" toggle. Only shown when the global learn checkbox
     // is on and this isn't a paired-refund group (those never create rules). A row's
     // noRule flag opts it out of rule-learning at import time.
@@ -2940,7 +2940,7 @@ function resetAll() {
   }, () => {
     Store.resetAll();
     [STORE_KEY, ...STORE_BACKUPS,
-     "fin_txns","fin_budgets","fin_nw_entries","fin_recurring","fin_goals","fin_settings","fin_forecast","fin_plans","fin_alloc_plan",
+     "fin_txns","fin_budgets","fin_nw_entries","fin_recurring","fin_goals","fin_settings","fin_forecast","fin_plans","fin_alloc_plan","fin_debts","fin_holidays",
      "ledger_theme","ledger_density","ledger_nav_expanded"
     ].forEach(k => localStorage.removeItem(k));
     showToast("All data reset");
@@ -2948,8 +2948,10 @@ function resetAll() {
   });
 }
 
-/* ── Budget: copy last month's actuals ── */
-document.getElementById("bud-copy-prev").addEventListener("click", () => {
+/* ── Budget: copy last month's actuals ──
+   Button temporarily removed from the topbar (to be relocated); guard with ?. so its
+   absence doesn't throw at load. Handler kept for when the control is re-added. */
+document.getElementById("bud-copy-prev")?.addEventListener("click", () => {
   const [py, pm] = prevMonth(_viewMonth.y, _viewMonth.m);
   const prevMs = mStat(getTxns(), py, pm);
   const cats = {};
@@ -2979,14 +2981,17 @@ document.getElementById("bud-copy-prev").addEventListener("click", () => {
    cased everywhere a localStorage key is written.
    ────────────────────────────────────────────────────────────────────────── */
 const IE_SECTIONS = [
-  { id: "txns",      label: "Transactions",          key: "fin_txns",             getter: () => getTxns(),                    dated: "date"  },
-  { id: "accounts",  label: "Accounts",              key: "fin_settings.accounts", getter: () => (getSettings().accounts || []) },
-  { id: "budgets",   label: "Budgets",               key: "fin_budgets",          getter: () => getBudgets()                  },
-  { id: "snapshots", label: "Snapshots",             key: "fin_nw_entries",       getter: () => getNWEntries(),               dated: "month" },
-  { id: "sched",     label: "Bills & Subscriptions", key: "fin_recurring",        getter: () => getRecurring()                },
-  { id: "goals",     label: "Goals",                 key: "fin_goals",            getter: () => getGoals()                    },
-  { id: "projects",  label: "Projects",              key: "fin_holidays",         getter: () => getHolidays()                 },
-  { id: "forecast",  label: "Forecast items",        key: "fin_forecast",         getter: () => getForecasts()                },
+  { id: "txns",      label: "Transactions",          key: "fin_txns",                   getter: () => getTxns(),                    dated: "date"  },
+  { id: "accounts",  label: "Accounts",              key: "fin_settings.accounts",      getter: () => (getSettings().accounts || []) },
+  { id: "snapshots", label: "Balance snapshots",     key: "fin_nw_entries",             getter: () => getNWEntries(),               dated: "month" },
+  { id: "budgets",   label: "Budgets",               key: "fin_budgets",                getter: () => getBudgets()                  },
+  { id: "sched",     label: "Bills & Subscriptions", key: "fin_recurring",              getter: () => getRecurring()                },
+  { id: "debts",     label: "Balance projection",    key: "fin_debts",                  getter: () => getDebts()                    },
+  { id: "goals",     label: "Goals",                 key: "fin_goals",                  getter: () => getGoals()                    },
+  { id: "projects",  label: "Projects",              key: "fin_holidays",               getter: () => getHolidays()                 },
+  { id: "forecast",  label: "Forecast",              key: "fin_forecast",               getter: () => getForecasts()                },
+  { id: "plans",     label: "Forecast plans",        key: "fin_plans",                  getter: () => getPlans()                    },
+  { id: "rules",     label: "Merchant rules",        key: "fin_settings.merchantRules", getter: () => getMerchantRules()            },
 ];
 let _ieFormat = "json";   // "json" | "csv"
 
@@ -3099,7 +3104,7 @@ function ieImport(file) {
       let extra = "";
       target.forEach(s => {
         const data = sections[s.id];
-        if (s.key === "fin_settings.accounts") { const st = getSettings(); st.accounts = data; lsSet("fin_settings", st); }
+        if (s.key.startsWith("fin_settings.")) { const sub = s.key.slice(13); const st = getSettings(); st[sub] = data; lsSet("fin_settings", st); }
         else {
           lsSet(s.key, data);
           if (s.id === "txns" && typeof ensureBillsFromTxns === "function") { const nb = ensureBillsFromTxns(data); if (nb) extra = ` · ${nb} new bill${nb === 1 ? "" : "s"}`; }
@@ -3122,7 +3127,7 @@ function ieReset() {
     confirmLabel: "Delete", danger: true,
   }, () => {
     sel.forEach(s => {
-      if (s.key === "fin_settings.accounts") { const st = getSettings(); st.accounts = []; lsSet("fin_settings", st); }
+      if (s.key.startsWith("fin_settings.")) { const sub = s.key.slice(13); const st = getSettings(); st[sub] = []; lsSet("fin_settings", st); }
       else lsSet(s.key, []);
     });
     showToast(`Reset ${sel.length} section${sel.length > 1 ? "s" : ""}`);

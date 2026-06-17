@@ -120,7 +120,7 @@ body.tauri .sidebar {
 .brand-mark:not(.brand-mark-img) {
   background: var(--accent); color: var(--accent-fg);
   display: grid; place-items: center; font-size: 14px; font-weight: 700;
-  font-family: "Fraunces", serif;
+  font-family: var(--font-sans);
   box-shadow: 0 1px 2px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.12);
 }
 body.sidebar-auto .sidebar:not(:hover) .brand { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
@@ -129,7 +129,7 @@ body.sidebar-auto .sidebar:not(:hover) .brand { justify-content: center; padding
    42px mark had basically no room to centre). 32px gives a clear 6px on either side. */
 body.sidebar-auto .sidebar:not(:hover) .brand-mark { width: 32px; height: 32px; border-radius: 9px; }
 /* (removed hover rotate/scale on the brand mark — felt clunky) */
-.brand-name { font-family: "Space Grotesk", "Inter", sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+.brand-name { font-family: var(--font-sans); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 
 .nav-section { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-4); padding: 14px 10px 6px; font-weight: 500; }
 
@@ -286,7 +286,7 @@ body.sidebar-auto .sidebar:not(:hover) .me { justify-content: center; padding-le
 }
 .me:hover .me-av { transform: scale(1.06); }
 .me-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.avatar-large { width: 72px; height: 72px; border-radius: 16px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 28px; font-weight: 600; font-family: "Fraunces", serif; overflow: hidden; flex-shrink: 0; }
+.avatar-large { width: 72px; height: 72px; border-radius: 16px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 28px; font-weight: 600; font-family: var(--font-sans); overflow: hidden; flex-shrink: 0; }
 .avatar-large img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar-controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
 
@@ -336,17 +336,19 @@ body.tauri .main { height: 100%; }
 .topbar-home-greet { display: none; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; flex-shrink: 0; min-width: 0; }
 .topbar-home-greet .topbar-greet-txt { font-family: "Inter", sans-serif; font-size: 28px; font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; color: var(--ink); white-space: nowrap; }
 .topbar-home-greet .topbar-greet-date { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
-.topbar-home-period { display: none; align-items: center; gap: 4px; flex-shrink: 0; }
-.topbar-home-period .hp-nav { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--bg-elev); color: var(--ink-2); border-radius: 7px; cursor: pointer; }
-.topbar-home-period .hp-nav:hover { background: var(--bg-sunk); color: var(--ink); }
-.topbar-home-period .hp-label { font-size: 12.5px; font-weight: 600; min-width: 90px; text-align: center; color: var(--ink); }
+/* Home month picker mirrors the shared .month-pick used on Forecast/Budgets/etc:
+   a sunk pill with borderless chevrons, so the whole app's month navigation reads the same. */
+.topbar-home-period { display: none; align-items: center; gap: 2px; flex-shrink: 0; padding: 3px; height: 34px; background: var(--bg-sunk); border-radius: 8px; }
+.topbar-home-period .hp-nav { width: 26px; height: 26px; display: grid; place-items: center; border: none; background: none; color: var(--ink-3); border-radius: 6px; cursor: pointer; }
+.topbar-home-period .hp-nav:hover { background: var(--bg-elev); color: var(--ink); }
+.topbar-home-period .hp-label { padding: 0 10px; font-size: 13px; font-weight: 500; min-width: 92px; text-align: center; color: var(--ink); }
 /* Show greeting + period nav only when the home page is active (CSS :has avoids any JS) */
 .main:has(#page-home.active) .topbar-home-greet,
 .main:has(#page-home.active) .topbar-home-period { display: flex; }
 /* Home topbar is taller and the greeting sits lower, so the stacked greeting + date
    block lines up with where page headings sit on other pages (e.g. Transactions).
    Scoped to Home only — every other page keeps the standard 13px topbar padding. */
-.main:has(#page-home.active) .topbar { padding-top: 30px; padding-bottom: 18px; align-items: flex-start; }
+.main:has(#page-home.active) .topbar { padding-top: 18px; padding-bottom: 8px; align-items: flex-start; }
 /* Align the search bar, icons, Add button, and month picker to the greeting's
    first line (the title), not the whole stacked block, so the top row reads level. */
 .main:has(#page-home.active) .topbar > .search-wrap,
@@ -422,7 +424,7 @@ body.tauri .topbar .topbar-home-greet, body.tauri .topbar .topbar-home-period { 
   .page.active { animation: none; }
 }
 .page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.page-head h1 { font-family: "Fraunces", serif; font-size: 22px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; }
+.page-head h1 { font-family: var(--font-sans); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; }
 .page-head .sub { font-size: 12px; }
 /* Dashboard scrolls — clean reference layout (KPIs + NW chart + cards + right rail) */
 #page-home.active { display: block; padding: 16px 28px 48px; }
@@ -492,10 +494,8 @@ html[data-theme="dark"] .nw-band { fill-opacity: 0.32; }
 .main:has(#page-insights.active) .topbar .icon-btn,
 .main:has(#page-insights.active) .topbar .traffic-lights,
 .main:has(#page-insights.active) .topbar .menu-btn { pointer-events: auto; }
-/* Picker sits immediately LEFT of the search bar (both pushed right) so it never
-   overlaps the "Reports" heading that sits top-left beneath the transparent topbar. */
-.main:has(#page-insights.active) .topbar-ins-slot { margin-left: auto; }
-.main:has(#page-insights.active) .search-wrap { margin-left: 0; }
+/* Month picker docks into the far-right cluster (after the icons), matching the dashboard
+   — search keeps its default margin-left:auto so the whole control group hugs the right. */
 #page-insights.active { display: flex; flex-direction: column; height: 100vh; padding: 30px 22px 14px; overflow: hidden; }
 #page-insights .ins-page-head { flex-shrink: 0; margin-bottom: 12px; }
 #page-insights .ins-page-head h1 { font-family: "Inter", sans-serif; font-size: 28px; font-weight: 750; letter-spacing: -0.03em; line-height: 1.1; }
@@ -550,7 +550,7 @@ html[data-theme="dark"] .nw-band { fill-opacity: 0.32; }
 #page-insights #home-topspend-body,
 #page-insights #home-recent-card > #home-recent-list { min-height: 0; overflow-y: auto; flex: 1; }
 .page-stub { padding: 60px 24px; text-align: center; color: var(--ink-3); border: 1px dashed var(--line); border-radius: var(--radius); background: var(--bg-elev); }
-.page-stub h3 { font-family: "Fraunces", serif; font-size: 24px; font-weight: 400; color: var(--ink); margin-bottom: 6px; }
+.page-stub h3 { font-family: var(--font-sans); font-size: 22px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
 /* Container-specific placement for the shared page-stub empty state (kept out of markup) */
 .goal-grid > .page-stub { grid-column: 1 / -1; }
 #bud-grid > .page-stub { margin: 14px; }

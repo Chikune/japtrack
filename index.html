@@ -6,7 +6,7 @@
 <title>Japtrack</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <link rel="manifest" href="./manifest.webmanifest" />
 <meta name="theme-color" content="#1c1917" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -67,6 +67,10 @@
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 5-5"/></svg></span>
       <span class="nav-label">Reports</span>
     </button>
+    <button class="nav-item" data-page="forecast" data-tooltip="Forecast">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+      <span class="nav-label">Forecast</span>
+    </button>
 
     <div class="nav-section">MONEY</div>
     <button class="nav-item" data-page="transactions" data-tooltip="Transactions">
@@ -79,6 +83,10 @@
     </button>
 
     <div class="nav-section">PLANNING</div>
+    <button class="nav-item" data-page="debt" data-tooltip="Balance projection">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg></span>
+      <span class="nav-label">Balance projection</span>
+    </button>
     <button class="nav-item" data-page="budgets" data-tooltip="Budgets">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
       <span class="nav-label">Budgets</span>
@@ -86,14 +94,6 @@
     <button class="nav-item" data-page="goals" data-tooltip="Goals">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
       <span class="nav-label">Goals</span>
-    </button>
-    <button class="nav-item" data-page="debt" data-tooltip="Debt calculator">
-      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg></span>
-      <span class="nav-label">Debt calculator</span>
-    </button>
-    <button class="nav-item" data-page="forecast" data-tooltip="Forecast">
-      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
-      <span class="nav-label">Forecast</span>
     </button>
 
     <div style="flex:1"></div>
@@ -128,24 +128,10 @@
         <span class="topbar-greet-date" id="dateline"></span>
       </div>
       <div class="crumbs">Japtrack / <b>Dashboard</b></div>
-      <div class="topbar-ins-slot"><div class="month-slot"></div></div>
       <div class="search-wrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-4)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input id="search-inp" placeholder="Search transactions, merchants, categories..." autocomplete="off" />
         <kbd>⌘K</kbd>
-      </div>
-      <div class="topbar-bud-slot">
-        <div class="month-slot"></div>
-        <button class="btn-ghost" id="bud-copy-prev">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 9V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><rect x="3" y="9" width="12" height="12" rx="2"/></svg>
-          Copy last month
-        </button>
-      </div>
-      <div class="topbar-fc-slot">
-        <div class="month-slot fc-month-slot"></div>
-      </div>
-      <div class="topbar-sched-slot">
-        <div class="month-slot"></div>
       </div>
       <button class="icon-btn" id="privacy-btn" title="Toggle privacy" aria-label="Toggle privacy mode">
         <svg id="privacy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -159,22 +145,18 @@
           <span id="add-btn-label">Add</span>
         </button>
       </div>
-      <div class="fc-add-wrap" id="fc-add-wrap">
-        <button class="add-btn" id="fc-add-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-          <span>Add forecast item</span>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <div class="fc-add-menu" id="fc-add-menu" hidden>
-          <button data-fc-add="income">Add recurring income</button>
-          <button data-fc-add="expense">Add recurring expense</button>
-          <button data-fc-add="plan">Add payment plan</button>
-        </div>
-      </div>
+      <button class="icon-btn topbar-refresh" id="home-refresh" title="Refresh" aria-label="Refresh">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <!-- Shared month-pickers dock here (far right, like the dashboard month nav) — only the active page's slot shows -->
+      <div class="topbar-ins-slot"><div class="month-slot"></div></div>
+      <div class="topbar-bud-slot"><div class="month-slot"></div></div>
+      <div class="topbar-fc-slot"><div class="month-slot fc-month-slot"></div></div>
+      <div class="topbar-sched-slot"><div class="month-slot"></div></div>
       <div class="topbar-home-period">
-        <button class="hp-nav" id="home-period-prev" title="Previous month" aria-label="Previous month"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="hp-nav" id="home-period-prev" title="Previous month" aria-label="Previous month"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
         <span class="hp-label" id="home-period-label">—</span>
-        <button class="hp-nav" id="home-period-next" title="Next month" aria-label="Next month"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="hp-nav" id="home-period-next" title="Next month" aria-label="Next month"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
       <div class="traffic-lights">
         <button class="tl min"   id="win-min"   aria-label="Minimise" title="Minimise"></button>
@@ -689,65 +671,43 @@
         <div><h1>Goals</h1><div class="sub" id="goals-sub">Track savings targets and budget multi-expense projects</div></div>
       </div>
 
-      <section class="goals-section">
-        <div class="goals-section-head">
-          <div><h2>Savings goals</h2><span class="goals-section-sub" id="goals-sub-count"></span></div>
-          <button class="btn-ghost-sm goals-section-add" id="goals-add-btn">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Add goal
-          </button>
+      <div class="card goals-card">
+        <div class="goals-head-row">
+          <div><h2>Goals &amp; projects</h2><div class="sub" id="goals-sub-count"></div></div>
+          <div class="goals-add-wrap">
+            <button class="btn-primary" id="goals-add-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Add
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="goals-add-menu" id="goals-add-menu" hidden>
+              <button data-add="goal">Savings goal</button>
+              <button data-add="project">Project</button>
+            </div>
+          </div>
         </div>
-        <div class="goal-grid" id="goals-grid"></div>
-      </section>
-
-      <section class="goals-section">
-        <div class="goals-section-head">
-          <div><h2>Projects</h2><span class="goals-section-sub" id="proj-sub-count"></span></div>
-          <button class="btn-ghost-sm goals-section-add" id="proj-add-btn">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Add project
-          </button>
+        <div class="goals-table-scroll">
+          <div class="goals-table-head">
+            <span>Name</span><span>Progress</span><span>Amount</span><span>Target / dates</span><span></span>
+          </div>
+          <div id="goals-list"></div>
         </div>
-        <div id="proj-grid"></div>
-      </section>
+      </div>
     </div>
 
     <!-- ══ DEBT PAYOFF PAGE ══ -->
     <div class="page" id="page-debt" data-page="debt">
       <div class="page-head debt-page-head">
-        <div><h1>Debt payoff</h1><div class="sub">Plan your route to debt-free with the snowball or avalanche method</div></div>
+        <div><h1>Balance projection</h1><div class="sub">Plan your debts, transfers and income — and project your debt-free date</div></div>
       </div>
 
-      <!-- Strategy + extra-payment controls -->
-      <section class="debt-controls" id="debt-controls">
-        <div class="debt-ctrl-group">
-          <label class="debt-ctrl-label">Strategy</label>
-          <div class="seg-row" id="debt-strategy-seg">
-            <button data-strategy="avalanche" aria-pressed="true" title="Pay highest interest rate first — saves the most money">Avalanche</button>
-            <button data-strategy="snowball" title="Pay smallest balance first — quickest wins for motivation">Snowball</button>
-          </div>
-        </div>
-        <div class="debt-ctrl-group">
-          <label class="debt-ctrl-label" for="debt-extra">Extra monthly payment (£)</label>
-          <input id="debt-extra" type="number" min="0" step="10" placeholder="0" class="debt-extra-inp" />
-        </div>
-        <div class="debt-ctrl-hint" id="debt-strategy-hint"></div>
-      </section>
+      <!-- Two-pane: debts table (left) + payoff visualisation (right) -->
+      <div class="debt-grid" id="debt-grid">
 
-      <!-- Summary KPIs -->
-      <section class="debt-kpis" id="debt-kpis"></section>
-
-      <!-- Payoff projection chart -->
-      <section class="debt-section" id="debt-chart-section" hidden>
-        <div class="debt-section-head"><h2>Payoff projection</h2><span class="debt-section-sub" id="debt-chart-sub"></span></div>
-        <div class="card debt-chart-card" id="debt-chart"></div>
-      </section>
-
-      <!-- Debt list -->
-      <section class="debt-section">
+        <!-- LEFT: debts table with merged KPI chips -->
         <div class="card debt-list-card">
           <div class="debt-list-head-row">
-            <div><h2>Your debts</h2><div class="sub" id="debt-list-sub"></div></div>
+            <div><h2>Your plan</h2><div class="sub" id="debt-list-sub"></div></div>
             <div class="btn-row">
               <button class="btn-primary" id="debt-add-btn">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
@@ -759,18 +719,27 @@
               </button>
             </div>
           </div>
-          <div class="debt-table-head">
-            <span>Debt</span><span>Balance</span><span>APR</span><span>Min / mo</span><span>Cleared by</span><span>Interest cost</span><span></span>
+          <div class="debt-chip-row" id="debt-kpis"></div>
+          <div class="debt-table-scroll">
+            <div class="debt-table-head">
+              <span>Name</span><span>Balance</span><span>APR</span><span>Min / mo</span><span>Cleared by</span><span>Interest cost</span><span></span>
+            </div>
+            <div id="debt-list"></div>
           </div>
-          <div id="debt-list"></div>
+          <div class="debt-total-row" id="debt-total-row" hidden>
+            <span class="debt-total-label">Net monthly<small id="debt-total-sub"></small></span>
+            <span class="debt-total-val" id="debt-net-val"></span>
+          </div>
         </div>
-      </section>
 
-      <!-- Payoff schedule / order -->
-      <section class="debt-section" id="debt-plan-section" hidden>
-        <div class="debt-section-head"><h2>Payoff plan</h2><span class="debt-section-sub" id="debt-plan-sub"></span></div>
-        <div class="debt-plan" id="debt-plan"></div>
-      </section>
+        <!-- RIGHT: payoff projection chart + balance-by-debt breakdown -->
+        <div class="card debt-viz-card" id="debt-viz">
+          <div class="debt-viz-head"><h2>Payoff projection</h2><span class="debt-section-sub" id="debt-chart-sub"></span></div>
+          <div id="debt-chart"></div>
+          <div class="debt-mini" id="debt-breakdown"></div>
+        </div>
+
+      </div>
     </div>
 
     <!-- ══ HELP / GUIDE PAGE ══ -->
@@ -889,7 +858,6 @@
       </div>
 
       <div class="fc-kpis" id="fc-kpis"></div>
-      <div class="fc-outlook-strip" id="fc-outlook"></div>
 
       <div class="fc-outer">
         <!-- Left main column: chart + items/scenarios -->
@@ -897,10 +865,16 @@
           <section class="card fc-chart-card" id="fc-balance-card">
             <div class="fc-section-head">
               <div>
-                <h2>Balance projection</h2>
-                <p>Projected account balance over time</p>
+                <h2 id="fc-balance-title">Net income over time</h2>
+                <p id="fc-balance-sub">Projected spendable balance, month by month</p>
               </div>
-              <div class="fc-account-seg" id="fc-balance-acct" aria-label="Projection account"></div>
+              <div class="fc-chart-controls">
+                <div class="seg fc-view-seg" id="fc-view-seg" aria-label="Forecast view">
+                  <button data-view="income" aria-pressed="true">Net income</button>
+                  <button data-view="networth" aria-pressed="false">Net worth</button>
+                </div>
+                <div class="fc-acct-pick" id="fc-balance-acct" aria-label="Projection account"></div>
+              </div>
             </div>
             <div class="fc-chart-wrap" id="fc-balance-grid"></div>
             <div class="fc-chart-legend">
@@ -910,32 +884,13 @@
             </div>
           </section>
 
-          <div class="fc-lower-left">
-            <section class="card fc-items-card">
-              <div class="fc-section-head">
-                <div>
-                  <h2>Forecast items</h2>
-                  <p id="fc-item-count"></p>
-                </div>
-                <div class="fc-items-head-actions">
-                  <button class="fc-group-btn" id="fc-group-btn" type="button">Group by: <b>Type</b> <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>
-                  <button class="btn-ghost" id="fc-manage-items" type="button">Manage items</button>
-                </div>
-              </div>
-              <div id="fc-tbody" class="fc-item-groups"></div>
-              <div class="fc-card-foot">
-                <button class="fc-foot-link" id="fc-view-all-items" type="button">View all forecast items <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
-              </div>
-            </section>
-
-            <section class="card fc-scenario-card">
-              <div class="fc-section-head">
-                <div><h2>Scenario planning</h2></div>
-                <button class="fc-link" id="fc-custom-scenario" type="button">What if?</button>
-              </div>
-              <div id="fc-scenarios"></div>
-            </section>
-          </div>
+          <section class="card fc-scenario-card">
+            <div class="fc-section-head">
+              <div><h2>Scenario planning</h2></div>
+              <button class="fc-link" id="fc-custom-scenario" type="button">What if?</button>
+            </div>
+            <div id="fc-scenarios"></div>
+          </section>
         </div>
 
         <!-- Right sidebar: insights + payment plans -->
@@ -953,13 +908,13 @@
           <section class="card fc-plan-card">
             <div class="fc-section-head">
               <div><h2>Payment plans</h2></div>
-              <button class="fc-link" type="button" onclick="renderPlans()">View all</button>
+              <button class="fc-link" type="button" onclick="switchPage('debt')">View all</button>
             </div>
             <div class="plan-grid" id="plan-grid"></div>
             <div class="fc-card-foot">
               <button class="fc-foot-add-btn" id="plan-add-btn" type="button">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-                Add payment plan
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                Manage in Balance projection
               </button>
             </div>
           </section>
@@ -985,10 +940,36 @@
 
       <!-- Sticky section nav — click to jump, highlights as you scroll -->
       <nav class="settings-tabs" id="settings-tabs">
-        <button data-target="sec-appearance" class="active">Appearance</button>
+        <button data-target="sec-profile" class="active">Profile</button>
+        <button data-target="sec-appearance">Appearance</button>
         <button data-target="sec-data">Import &amp; Export</button>
         <button data-target="sec-about">About</button>
       </nav>
+
+      <div class="card set-section" id="sec-profile" style="margin-bottom:18px">
+        <h2>Profile</h2>
+        <div class="desc">Your name and picture</div>
+        <div class="set-row" style="grid-template-columns:140px 1fr">
+          <div class="lab">Profile picture<small>upload an image, or use the first letter of your name</small></div>
+          <div class="avatar-controls">
+            <button type="button" id="set-av-btn" class="profile-av" title="Click to upload an image" aria-label="Upload profile picture">
+              <div class="avatar-large" id="set-av-preview"></div>
+              <span class="profile-av-overlay">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l3-3h4l3 3h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>Change</span>
+              </span>
+            </button>
+            <input type="file" id="set-av-file" accept="image/*" style="display:none" />
+            <div class="profile-av-actions">
+              <button type="button" class="btn-ghost" id="set-av-letter" style="padding:6px 12px;font-size:12px">Use letter</button>
+            </div>
+          </div>
+        </div>
+        <div class="set-row" style="grid-template-columns:140px 1fr">
+          <div class="lab">Display name<small>shown in sidebar</small></div>
+          <input type="text" id="set-name" placeholder="Your name" />
+        </div>
+      </div>
 
       <div class="card set-section" id="sec-appearance" style="margin-bottom:18px">
         <h2>Appearance</h2>
@@ -1213,40 +1194,6 @@
   </main>
 </div><!-- /app -->
 
-<!-- ══ PROFILE MODAL ══ (opened from sidebar profile button) -->
-<div class="modal-backdrop" id="profile-modal" hidden>
-  <div class="modal" onclick="event.stopPropagation()" style="width:520px">
-    <h3>Profile</h3>
-    <div class="set-row" style="grid-template-columns:140px 1fr">
-      <div class="lab">Profile picture<small>upload an image, or use the first letter of your name</small></div>
-      <div class="avatar-controls">
-        <button type="button" id="set-av-btn" class="profile-av" title="Click to upload an image" aria-label="Upload profile picture">
-          <div class="avatar-large" id="set-av-preview"></div>
-          <span class="profile-av-overlay">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l3-3h4l3 3h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"/><circle cx="12" cy="13" r="4"/></svg>
-            <span>Change</span>
-          </span>
-        </button>
-        <input type="file" id="set-av-file" accept="image/*" style="display:none" />
-        <div class="profile-av-actions">
-          <button type="button" class="btn-ghost" id="set-av-letter" style="padding:6px 12px;font-size:12px">Use letter</button>
-        </div>
-      </div>
-    </div>
-    <div class="set-row" style="grid-template-columns:140px 1fr">
-      <div class="lab">Display name<small>shown in sidebar</small></div>
-      <input type="text" id="set-name" placeholder="Your name" />
-    </div>
-    <div class="set-row" style="grid-template-columns:140px 1fr">
-      <div class="lab">Currency<small>display only</small></div>
-      <select id="set-currency"><option value="GBP">GBP (£)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option></select>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-primary" id="profile-m-done">Done</button>
-    </div>
-  </div>
-</div>
-
 <div class="modal-backdrop" id="nw-modal" hidden>
   <div class="modal" onclick="event.stopPropagation()">
     <h3 id="nw-modal-title">Add snapshot</h3>
@@ -1352,11 +1299,12 @@
 <div class="modal-backdrop" id="debt-modal" hidden>
   <div class="modal" onclick="event.stopPropagation()">
     <h3 id="debt-modal-title">Add debt</h3>
+    <div class="row"><label>Type</label><select id="debt-m-kind"><option value="debt">Debt</option><option value="transfer">Transfer</option><option value="income">Income</option></select></div>
     <div class="row"><label>Name</label><input id="debt-m-name" type="text" placeholder="e.g. Barclaycard, Car loan" /></div>
-    <div class="row"><label>Balance (£)</label><input id="debt-m-balance" type="number" step="0.01" min="0" placeholder="2500" /></div>
-    <div class="row"><label>Interest rate (APR %)</label><input id="debt-m-apr" type="number" step="0.01" min="0" placeholder="19.9" /></div>
-    <div class="row"><label>Min. monthly payment (£)</label><input id="debt-m-min" type="number" step="0.01" min="0" placeholder="50" /></div>
-    <div class="row"><label>Colour</label><input id="debt-m-color" type="color" class="color-swatch-inp" value="#d97757" /></div>
+    <div class="row debt-m-debtfield"><label>Balance (£)</label><input id="debt-m-balance" type="number" step="0.01" min="0" placeholder="2500" /></div>
+    <div class="row debt-m-debtfield"><label>Interest rate (APR %)</label><input id="debt-m-apr" type="number" step="0.01" min="0" placeholder="19.9" /></div>
+    <div class="row debt-m-debtfield"><label>Min. monthly payment (£)</label><input id="debt-m-min" type="number" step="0.01" min="0" placeholder="50" /></div>
+    <div class="row debt-m-amtfield"><label>Monthly amount (£)</label><input id="debt-m-amount" type="number" step="0.01" min="0" placeholder="500" /></div>
     <div class="modal-foot">
       <button class="btn-danger" id="debt-m-delete" style="margin-right:auto;display:none">Delete</button>
       <button class="btn-ghost" id="debt-m-cancel">Cancel</button>

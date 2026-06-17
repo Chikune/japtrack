@@ -99,7 +99,7 @@ function _switchPageNow(name) {
   // Hide the topbar Add button where it doesn't apply: Forecast has its own
   // header add button, and Reports/insights is a read-only dashboard.
   const topAddDiv = document.querySelector(".top-add");
-  if (topAddDiv) topAddDiv.style.display = (name === "home" || name === "forecast" || name === "insights" || name === "settings" || name === "goals" || name === "help" || name === "accounts" || name === "networth") ? "none" : "";
+  if (topAddDiv) topAddDiv.style.display = (name === "home" || name === "forecast" || name === "insights" || name === "settings" || name === "goals" || name === "help" || name === "accounts" || name === "networth" || name === "debt") ? "none" : "";
   // Sidebar highlight: tx sub-pages (expenses/income/transfers) all map back to the
   // "transactions" sidebar item, since they're tabs within that one page.
   const sidebarPage = (name === "scheduled" || (TX_PAGE_TYPES[name] && name !== "transactions")) ? "transactions" : name;
@@ -130,7 +130,7 @@ function _switchPageNow(name) {
     }
   });
   // Crumbs
-  const titles = { home: "Dashboard", insights: "Reports", forecast: "Forecast", debt: "Debt payoff", help: "Help & guide", networth: "Accounts · Net worth", transactions: "Transactions", expenses: "Transactions · Expenses", income: "Transactions · Income", transfers: "Transactions · Transfers", budgets: "Budgets", scheduled: "Bills & Subscriptions", accounts: "Accounts", goals: "Goals", holidays: "Holidays", settings: "Settings" };
+  const titles = { home: "Dashboard", insights: "Reports", forecast: "Forecast", debt: "Balance projection", help: "Help & guide", networth: "Accounts · Net worth", transactions: "Transactions", expenses: "Transactions · Expenses", income: "Transactions · Income", transfers: "Transactions · Transfers", budgets: "Budgets", scheduled: "Bills & Subscriptions", accounts: "Accounts", goals: "Goals", holidays: "Holidays", settings: "Settings" };
   const crumbs = document.querySelector(".crumbs");
   if (crumbs) {
     if (name === "insights") {
@@ -218,7 +218,7 @@ document.getElementById("settings-btn").addEventListener("click", () => switchPa
 (function wireSettingsTabs() {
   const tabs = document.getElementById("settings-tabs");
   if (!tabs) return;
-  const SECTION_IDS = ["sec-appearance","sec-data","sec-about"];
+  const SECTION_IDS = ["sec-profile","sec-appearance","sec-data","sec-about"];
   // Map each settings section to the renderer that fills it, so opening a tab
   // always shows fresh content even if an earlier renderAll silently failed.
   // (Categories moved to the Transactions page; Accounts + Net worth buckets are
@@ -246,30 +246,17 @@ document.getElementById("settings-btn").addEventListener("click", () => switchPa
     showOnly(target);
   });
   // Default visible section
-  showOnly("sec-appearance");
+  showOnly("sec-profile");
+  // Expose so the sidebar profile button can jump straight to the Profile section.
+  window._openSettingsSection = showOnly;
 })();
 
-// Profile modal — opens when the user clicks their profile in the sidebar.
-function openProfileModal() {
-  // Make sure the inputs reflect current settings (renderSettings is what populates them
-  // via the existing wiring; calling it here keeps the popover in sync without depending
-  // on the Settings page being mounted).
+// Sidebar profile button → open the Settings page on the Profile section to edit.
+document.getElementById("me-card").addEventListener("click", () => {
+  switchPage("settings");
   if (typeof renderSettings === "function") renderSettings();
-  document.getElementById("profile-modal").hidden = false;
-  setTimeout(() => document.getElementById("set-name")?.focus(), 50);
-}
-function closeProfileModal() {
-  document.getElementById("profile-modal").hidden = true;
-  // Refresh the sidebar avatar/name in case anything changed.
-  if (typeof applySidebarProfile === "function") applySidebarProfile();
-}
-document.getElementById("me-card").addEventListener("click", openProfileModal);
-document.getElementById("profile-m-done").addEventListener("click", closeProfileModal);
-document.getElementById("profile-modal").addEventListener("click", e => {
-  if (e.target.id === "profile-modal") closeProfileModal();
-});
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && !document.getElementById("profile-modal").hidden) closeProfileModal();
+  if (typeof window._openSettingsSection === "function") window._openSettingsSection("sec-profile");
+  setTimeout(() => document.getElementById("set-name")?.focus(), 60);
 });
 
 // Generic Escape-to-close for every modal (a11y: escape-routes). Prefers the
@@ -344,8 +331,7 @@ function renderAll() {
   safeRun("bud",      renderBud);
   safeRun("sched",    renderSched);
   safeRun("accounts", renderAccountsTab);
-  safeRun("goals",    renderGoals);
-  safeRun("holidays", renderHolidays);
+  safeRun("goals",    renderGoals); // also renders Projects (merged list)
   safeRun("forecast", renderForecast);
   safeRun("debt",     typeof renderDebt === "function" ? renderDebt : () => {});
   safeRun("settings", renderSettings);

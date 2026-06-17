@@ -106,7 +106,7 @@ html[data-theme="dark"] .tm-tile { color: rgba(0,0,0,0.82); }
 .hol-card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; transition: border-color 200ms; }
 .hol-card:hover { border-color: var(--ink-4); }
 .hol-card-head { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; margin-bottom: 12px; }
-.hol-name { font-family: "Fraunces", serif; font-size: 20px; font-weight: 500; line-height: 1.1; }
+.hol-name { font-family: var(--font-sans); font-size: 19px; font-weight: 600; line-height: 1.1; }
 .hol-meta { font-size: 11.5px; color: var(--ink-3); margin-top: 4px; }
 .hol-total { text-align: right; }
 .hol-total .lab { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
@@ -184,6 +184,66 @@ html[data-theme="dark"] .tm-tile { color: rgba(0,0,0,0.82); }
 .goal-manual-input input { flex: 1; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; font-size: 12.5px; outline: none; }
 .goal-manual-input input:focus { border-color: var(--ink-3); }
 .goal-manual-input button { padding: 6px 12px; border-radius: 6px; border: none; background: var(--accent); color: var(--accent-fg); font: inherit; font-size: 12px; cursor: pointer; }
+
+/* ── Goals + Projects unified fixed-box table ── */
+#page-goals .goals-card { padding: 0; overflow: hidden; }
+.goals-head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 20px 12px; }
+.goals-head-row h2 { margin: 0 0 3px; font-size: 16px; font-weight: 700; }
+.goals-head-row .sub { color: var(--ink-3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.goals-add-wrap { position: relative; flex-shrink: 0; }
+.goals-add-wrap #goals-add-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; font-size: 12.5px; }
+.goals-add-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 170px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.12); padding: 6px; }
+.goals-add-menu button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; background: none; border-radius: 7px; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.goals-add-menu button:hover { background: var(--bg-sunk); }
+
+.goals-table-head, .goal-row, .proj-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.9fr) minmax(120px, 1.3fr) minmax(86px, .9fr) minmax(100px, 1.1fr) auto;
+  gap: 12px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line-2);
+}
+.goals-table-head { padding: 11px 20px; color: var(--ink-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+.goals-group-head { padding: 8px 20px 6px; background: color-mix(in oklch, var(--bg-sunk) 45%, var(--bg-elev)); color: var(--ink-3); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--line-2); }
+.goal-row, .proj-row { font-size: 13px; transition: background 160ms ease; }
+.goal-row:hover, .proj-row:hover { background: color-mix(in oklch, var(--bg-sunk) 64%, transparent); }
+.proj-row { cursor: pointer; }
+.goal-row.complete { background: color-mix(in oklch, var(--pos) 5%, transparent); }
+
+.gr-name { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.gr-name .goal-ic { width: 32px; height: 32px; border-radius: 8px; font-size: 15px; }
+.gr-name .proj-ic { background: color-mix(in oklch, var(--accent) 22%, var(--bg-sunk)); }
+.gr-name-txt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gr-name-txt b { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-chevron { color: var(--ink-4); font-size: 11px; width: 12px; flex-shrink: 0; }
+.goals-type-tag { display: inline-block; align-self: flex-start; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 999px; }
+.goals-type-tag.goal { color: var(--accent-ink); background: var(--accent-soft); }
+.goals-type-tag.project { color: #6d4ea6; background: color-mix(in oklch, #a06cd5 18%, transparent); }
+.goals-done-badge { font-size: 10px; font-weight: 600; color: var(--pos); background: var(--pos-soft); padding: 1px 6px; border-radius: 999px; margin-left: 6px; }
+
+.gr-progress { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gr-progress .goal-track { flex: 1; margin-top: 0; min-width: 40px; }
+.gr-pct { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.gr-muted { color: var(--ink-4); font-size: 12px; }
+.gr-amount { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gr-amount .of { color: var(--ink-4); font-size: 11.5px; font-weight: 500; }
+.gr-target { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gr-target .deadline { font-size: 11px; }
+.gr-target .deadline.urgent { color: var(--warn); }
+.gr-target .deadline.overdue { color: var(--neg); font-weight: 600; }
+.gr-acts { display: flex; align-items: center; gap: 6px; justify-self: end; }
+.gr-acts button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 7px; display: grid; place-items: center; color: var(--ink-2); background: var(--bg); cursor: pointer; }
+.gr-acts button:hover { background: var(--bg-sunk); color: var(--ink); }
+.gr-acts button.danger:hover { color: var(--neg); border-color: var(--neg); }
+.goal-quick { display: inline-flex; align-items: center; gap: 4px; }
+.goal-quick input { width: 64px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); font: inherit; font-size: 12px; outline: none; }
+.goal-quick input:focus { border-color: var(--ink-3); }
+.goal-quick button { width: 28px; height: 28px; border: none; border-radius: 7px; background: var(--accent); color: var(--accent-fg); font-size: 15px; line-height: 1; cursor: pointer; }
+
+/* Project expanded detail — reuses the existing rich project card, stripped of its
+   own chrome (head + toggle) so it reads as in-table detail. */
+.proj-expanded { border-bottom: 1px solid var(--line-2); background: color-mix(in oklch, var(--bg-sunk) 32%, var(--bg-elev)); padding: 4px 20px 16px; }
+.proj-expanded .hol-card { border: 0; background: transparent; padding: 0; margin: 0; }
+.proj-expanded .hol-card-head, .proj-expanded .hol-toggle { display: none; }
+.proj-expanded .hol-items { margin-top: 4px; }
 
 /* ── Settings sticky section nav ── */
 .settings-tabs {
@@ -387,18 +447,18 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 .acc-list-row { display: grid; grid-template-columns: 36px 1fr 130px 130px; gap: 14px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--line-2); cursor: pointer; transition: background 150ms; }
 .acc-list-row:last-child { border-bottom: none; }
 .acc-list-row:hover { background: var(--bg-sunk); }
-.acc-list-ic { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 14px; font-family: "Fraunces", serif; }
+.acc-list-ic { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 14px; font-family: var(--font-sans); }
 
 /* ── Accounts tab (legacy cards — still used by Dashboard mini list) ── */
 .acc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .acc-card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; transition: border-color 200ms, transform 200ms; cursor: pointer; }
 .acc-card:hover { border-color: var(--ink-4); transform: translateY(-1px); }
 .acc-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.acc-card-ic { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 16px; flex-shrink: 0; font-family: "Fraunces", serif; }
+.acc-card-ic { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 16px; flex-shrink: 0; font-family: var(--font-sans); }
 .acc-card-info { flex: 1; min-width: 0; }
 .acc-card-info b { display: block; font-size: 14px; font-weight: 600; }
 .acc-card-info span { font-size: 11.5px; color: var(--ink-3); }
-.acc-card-bal { font-family: "Fraunces", serif; font-size: 30px; font-weight: 500; letter-spacing: -0.025em; line-height: 1; }
+.acc-card-bal { font-family: var(--font-mono); font-size: 28px; font-weight: 600; letter-spacing: -0.025em; line-height: 1; }
 .acc-card-delta { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: var(--pos-soft); color: var(--accent-ink); margin-top: 10px; font-family: "IBM Plex Mono", monospace; }
 .acc-card-delta.neg { background: var(--neg-soft); color: var(--neg); }
 .acc-card-delta.zero { background: var(--bg-sunk); color: var(--ink-3); }
@@ -427,8 +487,11 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 #page-accounts .acc-tfr-filter { margin-left: auto; height: 30px; align-self: center; }
 #page-accounts .acc-int-picker { margin-left: auto; align-self: center; height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink-2); font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 #page-accounts .acc-int-picker:hover { background: var(--bg-sunk); color: var(--ink); }
-.acc-pop-check { display: flex; align-items: center; gap: 9px; padding: 7px 4px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
-.acc-pop-check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+/* Compact one-line checklist rows. The `.acc-pop` prefix lifts specificity above the
+   generic `.acc-pop label` / `.acc-pop input` rules that otherwise bleed onto these
+   (stacking a giant tick over an uppercased label). */
+.acc-pop .acc-pop-check { display: flex; align-items: center; gap: 8px; margin: 0; padding: 5px 4px; font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; cursor: pointer; }
+.acc-pop .acc-pop-check input { flex: 0 0 auto; width: 14px; height: 14px; min-height: 0; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
 #page-accounts { padding-top: 30px; }
 #page-accounts > .acc-tabs { display: none; }
 #page-accounts .acc-page-head { margin-bottom: 22px; }
@@ -557,7 +620,7 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 #page-accounts .acc-panel-head + .acc-panel-section { border-top: 0; padding-top: 0; }
 #page-accounts .acc-panel-section label { color: var(--ink-2); font-size: 12px; font-weight: 700; }
 #page-accounts .acc-panel-section p { margin: 0; color: var(--ink-3); font-size: 12.5px; line-height: 1.5; }
-#page-accounts .acc-panel-bal { font-family: "Fraunces", serif; font-size: 30px; line-height: 1; }
+#page-accounts .acc-panel-bal { font-family: var(--font-mono); font-size: 28px; font-weight: 600; line-height: 1; }
 #page-accounts .acc-mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 #page-accounts .acc-mini-card { min-height: 104px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sunk); display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
 #page-accounts .acc-mini-card span { color: var(--ink-2); font-size: 12px; }
@@ -628,8 +691,9 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 #page-accounts .acc-tfr-date { color: var(--ink-2); font-size: 12.5px; white-space: nowrap; }
 #page-accounts .acc-tfr-amt { text-align: right; font-family: "IBM Plex Mono", monospace; font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; color: color-mix(in oklch, var(--accent) 80%, var(--ink)); }
 #page-accounts .acc-panel { position: static; top: auto; min-height: 0; max-height: 100%; overflow-y: auto; }
-/* table */
-#page-accounts table.acc-bal-grid { display: table; table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0; }
+/* table — height:100% lets the spacer row stretch so Total pins to the card bottom */
+#page-accounts table.acc-bal-grid { display: table; table-layout: fixed; width: 100%; height: 100%; border-collapse: separate; border-spacing: 0; }
+#page-accounts .acc-g-spacer td { height: 100%; padding: 0; border: none; background: var(--bg-elev); }
 #page-accounts .acc-bal-grid th, #page-accounts .acc-bal-grid td { padding: 0; }
 #page-accounts .acc-bal-grid thead th { position: sticky; top: 0; z-index: 3; height: 42px; vertical-align: middle; background: var(--bg-elev); color: var(--ink-3); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--line); }
 #page-accounts .acc-g-corner { width: 300px; min-width: 240px; text-align: left; padding: 0 18px; position: sticky; left: 0; z-index: 5; background: var(--bg-elev); }
@@ -728,7 +792,7 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 #page-accounts .acc-g-empty h3 { margin: 0 0 6px; font-size: 16px; }
 #page-accounts .acc-g-empty p { margin: 0; color: var(--ink-3); font-size: 13px; }
 /* popovers (add month / add account / row menu) */
-.acc-pop { z-index: 60; width: 230px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); box-shadow: 0 22px 50px rgba(0,0,0,.34); }
+.acc-pop { z-index: 60; width: 230px; max-height: min(70vh, calc(100vh - 24px)); overflow-y: auto; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); box-shadow: 0 22px 50px rgba(0,0,0,.34); }
 .acc-pop label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin-bottom: 6px; }
 .acc-pop label.acc-pop-l2 { margin-top: 12px; }
 .acc-pop input, .acc-pop select { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; outline: none; }
@@ -736,6 +800,10 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 .acc-pop-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .acc-pop-cancel { height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; cursor: pointer; }
 .acc-pop-add { height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-fg); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+/* Single-select option rows (Forecast account picker) inside an .acc-pop popover. */
+.acc-pop .acc-pop-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; text-align: left; white-space: nowrap; cursor: pointer; }
+.acc-pop .acc-pop-opt:hover { background: var(--bg-sunk); color: var(--ink); }
+.acc-pop .acc-pop-opt.sel { background: var(--pos-soft); color: var(--pos); font-weight: 650; }
 .acc-menu-pop { width: auto; min-width: 160px; padding: 6px; }
 .acc-pop-item { display: block; width: 100%; text-align: left; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
 .acc-pop-item:hover { background: var(--bg-sunk); }
@@ -841,7 +909,7 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 /* ════ Dashboard (reference layout) ════ */
 /* KPIs: 4 separate gapped cards (override the joined .kpis grid on home) */
 #page-home .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; background: transparent; border: none; border-radius: 0; overflow: visible; }
-#page-home .kpi { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 14px 34px rgba(0,0,0,0.10); display: grid; grid-template-columns: auto 1fr; column-gap: 14px; row-gap: 0; align-items: center; }
+#page-home .kpi { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 14px 34px rgba(0,0,0,0.10); display: grid; grid-template-columns: auto 1fr; column-gap: 14px; row-gap: 0; align-items: center; }
 #page-home .kpi-badge { grid-column: 1; grid-row: 1 / span 3; width: 48px; height: 48px; border-radius: 50%; }
 #page-home .kpi-badge svg { width: 22px; height: 22px; }
 #page-home .kpi-lab { grid-column: 2; font-size: 12.5px; color: var(--ink-3); text-transform: none; letter-spacing: 0; font-weight: 600; }
@@ -851,9 +919,11 @@ html[data-density="compact"] .nw-table td { padding: 7px 10px; }
 #page-home .kpi.net .kpi-badge { background: color-mix(in oklch, var(--accent) 20%, transparent); color: var(--accent-ink); }
 #page-home .kpi.pct .kpi-badge { background: var(--pos-soft); color: var(--pos); }
 
-/* ── Dashboard fits the viewport — no page scroll; cards flex to fill all space ── */
-#page-home.active { display: flex; flex-direction: column; height: calc(100vh - 60px); padding: 16px 28px 16px; overflow: hidden; gap: 14px; }
-body.tauri #page-home.active { height: calc(100% - 60px); }
+/* ── Dashboard fits the viewport — no page scroll; cards flex to fill all space ──
+   The page flex-fills the space left below the (taller, greeting) home topbar instead of
+   a hardcoded calc(100vh - 60px) that ignored the topbar's real height and overflowed. */
+.main:has(#page-home.active) { overflow: hidden; }
+#page-home.active { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 16px 28px 12px; overflow: hidden; gap: 12px; }
 #page-home .kpis { flex-shrink: 0; margin-bottom: 0; }
 /* Two-column body fills the remaining height; both columns stretch equally */
 #page-home .home-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); gap: 16px; align-items: stretch; flex: 1; min-height: 0; }
@@ -866,11 +936,13 @@ body.tauri #page-home.active { height: calc(100% - 60px); }
 #page-home .home-row2 > .card { min-height: 0; display: flex; flex-direction: column; }
 #page-home #home-cats, #page-home #home-accounts { flex: 1; min-height: 0; overflow-y: auto; }
 #page-home .home-row2 .card-foot-link { margin-top: auto; flex-shrink: 0; }
-/* Right column: "Next up" sizes to content, "This month" flexes to fill the blank space */
-#page-home #home-upcoming-card { flex-shrink: 0; display: flex; flex-direction: column; max-height: 40%; }
+/* Right column: "Next up" hugs its content, "This month" fills the remaining height —
+   and its rows stretch to fill so there's no dead space at the card's bottom edge. */
+#page-home #home-upcoming-card { flex: 0 0 auto; display: flex; flex-direction: column; }
 #page-home #home-upcoming-list { min-height: 0; overflow-y: auto; }
 #page-home #home-thismonth-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-#page-home #home-thismonth { flex: 1; min-height: 0; overflow-y: auto; }
+#page-home #home-thismonth { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+#page-home #home-thismonth .home-tm-row { flex: 1 1 0; min-height: 52px; }
 /* Net-worth header controls: series toggle + range pills share the row without colliding */
 #page-home .nw-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 #page-home .home-grid .card { border-radius: 14px; }
@@ -1156,22 +1228,35 @@ body.tauri #page-home.active { height: calc(100% - 60px); }
 .main:has(#page-forecast.active) .topbar .fc-add-wrap,
 .main:has(#page-forecast.active) .topbar .traffic-lights,
 .main:has(#page-forecast.active) .topbar .menu-btn { pointer-events: auto; }
-#page-forecast { padding-top: 30px; }
-#page-forecast .fc-page-head { margin-bottom: 22px; }
+/* Fixed-box page — fits the viewport with no page scroll, like Reports/Dashboard. */
+.main:has(#page-forecast.active) { overflow: hidden; }
+#page-forecast.active { display: flex; flex-direction: column; height: 100vh; padding: 30px 22px 14px; overflow: hidden; }
+body.tauri #page-forecast.active { height: 100%; }
+#page-forecast .fc-page-head { flex-shrink: 0; margin-bottom: 12px; }
+/* Heading matches the other pages (Reports/Dashboard): Inter 28px / 750. */
 #page-forecast .fc-page-head h1 { font-family: "Inter", sans-serif; font-size: 28px; font-weight: 750; letter-spacing: -0.03em; line-height: 1.1; }
 #page-forecast .fc-page-head .sub { margin-top: 7px; color: var(--ink-2); font-size: 14px; }
+
+/* In-page toolbar (mirrors the Balances toolbar buttons) */
+#page-forecast .fc-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+#page-forecast .fc-toolbar .acc-tb-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg-sunk); color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+#page-forecast .fc-toolbar .acc-tb-btn:hover { background: color-mix(in oklch, var(--bg-sunk) 65%, var(--bg-elev)); color: var(--ink); }
+
+/* Chart-card head controls: Net income / Net worth toggle + account picker */
+#page-forecast .fc-chart-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 /* Forecast Add dropdown — now lives in the topbar (rightmost) */
 .topbar .fc-add-wrap { position: relative; }
 .topbar .fc-add-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; min-width: 210px; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-elev); box-shadow: 0 18px 45px rgba(0,0,0,.28); }
 .topbar .fc-add-menu button { width: 100%; min-height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); text-align: left; font: inherit; font-size: 12.5px; cursor: pointer; }
 .topbar .fc-add-menu button:hover { background: var(--bg-sunk); }
-#page-forecast .fc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 14px; }
-#page-forecast .fc-kpi-card { min-height: 116px; padding: 22px 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-elev); display: flex; flex-direction: row; align-items: center; gap: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-#page-forecast .fc-kpi-card > div:not(.fc-kpi-ic) { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-#page-forecast .fc-kpi-card span { color: var(--ink-3); font-size: 13px; font-weight: 600; }
-#page-forecast .fc-kpi-card strong { font-family: "IBM Plex Mono", monospace; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-#page-forecast .fc-kpi-card p { margin: 0; color: var(--ink-3); font-size: 12.5px; }
-#page-forecast .fc-kpi-ic { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; }
+#page-forecast .fc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; flex-shrink: 0; }
+#page-forecast .fc-kpi-card { min-height: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-elev); display: flex; flex-direction: row; align-items: center; gap: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+#page-forecast .fc-kpi-card > div:not(.fc-kpi-ic) { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+#page-forecast .fc-kpi-card span { color: var(--ink-3); font-size: 11.5px; font-weight: 600; }
+#page-forecast .fc-kpi-card strong { font-family: var(--font-mono); font-size: 19px; line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+#page-forecast .fc-kpi-card p { margin: 0; color: var(--ink-4); font-size: 11px; }
+#page-forecast .fc-kpi-ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; }
+#page-forecast .fc-kpi-ic svg { width: 17px; height: 17px; }
 #page-forecast .fc-kpi-ic.income { background: var(--pos-soft); color: var(--pos); }
 #page-forecast .fc-kpi-ic.spending { background: var(--neg-soft); color: var(--neg); }
 #page-forecast .fc-kpi-ic.net.pos { background: var(--pos-soft); color: var(--pos); }
@@ -1187,25 +1272,34 @@ body.tauri #page-home.active { height: calc(100% - 60px); }
 #page-forecast .fc-check { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; color: var(--pos); background: var(--pos-soft); font-weight: 800; }
 #page-forecast .fc-outlook-strip .pos { color: var(--pos); font-weight: 800; }
 #page-forecast .fc-outlook-strip .warn { color: var(--warn); font-weight: 800; }
-#page-forecast .fc-outer { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; align-items: start; }
-#page-forecast .fc-main-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-#page-forecast .fc-right-col { display: flex; flex-direction: column; gap: 14px; }
-#page-forecast .fc-lower-left { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr); gap: 14px; align-items: start; }
+#page-forecast .fc-outer { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; align-items: stretch; flex: 1; min-height: 0; }
+#page-forecast .fc-main-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; }
+#page-forecast .fc-right-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+/* Chart gets the lion's share of the main column; scenario card takes the rest and
+   scrolls internally if its list is long, so the chart stays prominent. */
+#page-forecast .fc-chart-card { display: flex; flex-direction: column; flex: 1.6 1 0; min-height: 0; }
+#page-forecast .fc-scenario-card { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+#page-forecast .fc-scenario-card #fc-scenarios { flex: 1; min-height: 0; overflow-y: auto; }
+/* Right column: insights fills (scrolls internally if long); payment plans hugs content. */
+#page-forecast .fc-insights-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#page-forecast .fc-insights-card #fc-insights { flex: 1; min-height: 0; overflow-y: auto; }
+#page-forecast .fc-plan-card { flex-shrink: 0; }
 #page-forecast .fc-chart-card,
 #page-forecast .fc-insights-card,
 #page-forecast .fc-items-card,
 #page-forecast .fc-scenario-card,
 #page-forecast .fc-plan-card { padding: 0; overflow: hidden; }
-#page-forecast .fc-section-head { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--line-2); }
+#page-forecast .fc-section-head { min-height: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--line-2); }
 #page-forecast .fc-section-head h2 { margin: 0; font-size: 16px; font-weight: 760; letter-spacing: -0.01em; }
 #page-forecast .fc-section-head p { margin: 5px 0 0; color: var(--ink-3); font-size: 12.5px; }
-#page-forecast .fc-account-seg { display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); max-width: 100%; overflow-x: auto; }
-#page-forecast .fc-account-seg button { height: 32px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; white-space: nowrap; cursor: pointer; }
-#page-forecast .fc-account-seg button[aria-pressed="true"] { background: var(--pos-soft); color: var(--pos); }
-#page-forecast .fc-chart-wrap { min-height: 390px; padding: 18px 18px 8px; }
-#page-forecast .fc-line-chart { width: 100%; height: 360px; display: block; }
+/* Compact account dropdown (replaces the old wide chip row) — mirrors the Balances picker. */
+#page-forecast .fc-acct-pick { display: flex; align-items: center; flex-shrink: 0; }
+#page-forecast .fc-acct-dd { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink-2); font: inherit; font-size: 12.5px; white-space: nowrap; cursor: pointer; }
+#page-forecast .fc-acct-dd:hover { background: var(--bg-sunk); color: var(--ink); }
+#page-forecast .fc-chart-wrap { flex: 1; min-height: 120px; padding: 12px 18px 4px; }
+#page-forecast .fc-line-chart { width: 100%; height: 100%; min-height: 0; display: block; }
 #page-forecast .fc-line-chart text { fill: var(--ink-3); font-size: 12px; font-family: "IBM Plex Mono", monospace; }
-#page-forecast .fc-chart-legend { display: flex; gap: 22px; justify-content: center; align-items: center; padding: 0 18px 18px; color: var(--ink-3); font-size: 12px; }
+#page-forecast .fc-chart-legend { flex-shrink: 0; display: flex; gap: 22px; justify-content: center; align-items: center; padding: 4px 18px 14px; color: var(--ink-3); font-size: 12px; }
 #page-forecast .fc-chart-legend span { display: flex; align-items: center; gap: 7px; }
 #page-forecast .fc-chart-legend i { width: 9px; height: 9px; border-radius: 50%; }
 #page-forecast .fc-chart-legend .pos { background: var(--pos); }
@@ -1305,7 +1399,7 @@ body.tauri #page-home.active { height: calc(100% - 60px); }
 .plan-acts button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink-3); cursor: pointer; display: grid; place-items: center; }
 .plan-acts button:hover { background: var(--bg-sunk); color: var(--ink); }
 .plan-acts .danger:hover { color: var(--neg); border-color: var(--neg); }
-.plan-amount { font-family: "Fraunces", serif; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; }
+.plan-amount { font-family: var(--font-mono); font-size: 21px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
 .plan-amount .of { color: var(--ink-3); font-size: 13px; font-weight: 400; font-family: "IBM Plex Mono", monospace; letter-spacing: 0; }
 .plan-track { height: 8px; border-radius: 999px; background: var(--bg-sunk); overflow: hidden; margin-top: 12px; }
 .plan-fill { height: 100%; border-radius: 999px; transition: width 600ms cubic-bezier(0.2,0.8,0.2,1); }
@@ -1466,33 +1560,56 @@ button, select, input, label, a { touch-action: manipulation; }
 #page-debt .debt-page-head h1 { font-family: "Inter", sans-serif; font-size: 28px; font-weight: 750; letter-spacing: -0.03em; line-height: 1.1; }
 #page-debt .debt-page-head .sub { margin-top: 7px; color: var(--ink-2); font-size: 14px; }
 
-.debt-controls {
-  display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap;
-  background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 16px 18px; margin-bottom: 18px;
+/* Two-pane layout: debts table (left) + payoff visualisation (right) */
+.debt-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.debt-grid.no-viz { grid-template-columns: 1fr; }
+/* id-scoped so it beats the desktop `#page-debt .debt-viz-card{display:flex}` rule */
+#page-debt .debt-grid.no-viz .debt-viz-card { display: none; }
+/* Empty projection placeholder (shown when there's data but no debts to project) */
+.debt-chart-empty { display: flex; align-items: center; justify-content: center; min-height: 200px; padding: 24px; text-align: center; color: var(--ink-4); font-size: 13px; }
+
+/* Fixed-box at desktop (2-pane): page fills the height, the debts table scrolls inside
+   its card with a sticky column header — same pattern as Balances/Transactions. The
+   stacked mobile layout (≤1080px) keeps normal page scrolling. */
+@media (min-width: 1081px) {
+  #page-debt.active { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  #page-debt .debt-grid { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  #page-debt .debt-list-card { display: flex; flex-direction: column; min-height: 0; }
+  #page-debt .debt-table-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  #page-debt .debt-table-head { position: sticky; top: 0; z-index: 2; background: var(--bg-elev); }
+  /* Viz card stretches to the full grid-row height so its bottom edge matches the
+     table card; content stacks from the top with spare space below. */
+  #page-debt .debt-viz-card { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+
+  /* Goals + Projects: same fixed-box pattern — the card fills the page height and the
+     list scrolls inside it under a sticky column header. */
+  #page-goals.active { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  #page-goals .goals-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #page-goals .goals-table-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  #page-goals .goals-table-head { position: sticky; top: 0; z-index: 2; background: var(--bg-elev); }
 }
-.debt-ctrl-group { display: flex; flex-direction: column; gap: 7px; }
-.debt-ctrl-label { font-size: 12px; font-weight: 600; color: var(--ink-3); letter-spacing: 0.01em; }
-.debt-controls .seg-row { display: flex; gap: 4px; padding: 3px; background: var(--bg-sunk); border-radius: 8px; }
-.debt-controls .seg-row button { padding: 7px 16px; border: none; background: none; color: var(--ink-3); border-radius: 6px; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; transition: background 150ms, color 150ms; }
-.debt-controls .seg-row button[aria-pressed="true"] { background: var(--bg-elev); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
-.debt-extra-inp { width: 140px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13.5px; font-variant-numeric: tabular-nums; }
-.debt-extra-inp:focus { outline: none; border-color: var(--accent); }
-.debt-ctrl-hint { flex: 1; min-width: 180px; font-size: 12px; color: var(--ink-4); line-height: 1.5; align-self: center; }
 
-.debt-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 26px; }
-.debt-kpi-card { height: 112px; padding: 18px 20px; border: 1px solid color-mix(in oklch, var(--line) 82%, transparent); border-radius: 10px; background: color-mix(in oklch, var(--bg-elev) 86%, transparent); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 18px 46px rgba(0,0,0,0.10); display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; }
-.debt-kpi-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.debt-kpi-ic { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: var(--accent-soft); color: var(--accent); }
-.debt-kpi-ic.pos { background: var(--pos-soft); color: var(--pos); }
-.debt-kpi-ic.neg { background: var(--neg-soft); color: var(--neg); }
-.debt-kpi-card span { color: var(--ink-2); font-size: 13px; font-weight: 650; }
-.debt-kpi-card b { color: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 24px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.debt-kpi-card b.pos { color: var(--pos); }
-.debt-kpi-card b.neg { color: var(--neg); }
-.debt-kpi-card small { color: var(--ink-3); font-size: 12.5px; }
+/* Mobile: drop the column header and let goal/project rows wrap. */
+@media (max-width: 1080px) {
+  .goals-table-head { display: none; }
+  .goal-row, .proj-row { grid-template-columns: 1fr auto; gap: 8px 12px; }
+  .goal-row > .gr-progress, .goal-row > .gr-amount, .goal-row > .gr-target,
+  .proj-row > .gr-progress, .proj-row > .gr-amount, .proj-row > .gr-target { grid-column: 1 / -1; }
+}
 
-.debt-chart-card { position: relative; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-elev); }
+/* KPI chips merged into the table card header */
+.debt-chip-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 14px; border-bottom: 1px solid var(--line-2); }
+.debt-chip { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; min-width: 0; background: var(--bg-sunk); border: 1px solid color-mix(in oklch, var(--line) 70%, transparent); border-radius: 9px; flex: 1 1 auto; }
+.debt-chip span { font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); white-space: nowrap; }
+.debt-chip b { font-family: "IBM Plex Mono", monospace; font-size: 16px; line-height: 1; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.debt-chip b.pos { color: var(--pos); }
+.debt-chip b.neg { color: var(--neg); }
+
+/* Right pane — visualisation card */
+.debt-viz-card { position: relative; padding: 16px 18px; }
+.debt-viz-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.debt-viz-head h2 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.debt-stall-note { font-size: 12px; color: var(--neg); line-height: 1.45; margin-bottom: 8px; }
 .debt-line-chart { width: 100%; height: auto; display: block; }
 .debt-line-chart .debt-axis-y, .debt-line-chart .debt-axis-x { fill: var(--ink-4); font-size: 12px; font-family: "IBM Plex Mono", monospace; }
 .debt-chart-tip { position: absolute; pointer-events: none; z-index: 5; background: var(--ink); color: var(--bg); border-radius: 8px; padding: 9px 11px; min-width: 168px; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
@@ -1502,21 +1619,19 @@ button, select, input, label, a { touch-action: manipulation; }
 .debt-chart-tip .debt-tip-row b { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
 .debt-chart-tip .debt-tip-cleared { display: block; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.15); color: var(--accent-fg); opacity: 0.95; font-size: 11.5px; }
 
-.debt-section { margin-bottom: 28px; }
-.debt-section:last-child { margin-bottom: 0; }
-.debt-section-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
-.debt-section-head h2 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
 .debt-section-sub { font-size: 12.5px; color: var(--ink-4); font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* Debts table card (mirrors the Budgets/Transactions row-table pattern) */
-.debt-list-card { padding: 0; overflow: hidden; }
+/* id-scoped so it beats `html[data-density="compact"] .card{padding:14px}` — the card
+   must stay padding-0 so the inner rows + pinned net-total reach its edges. */
+#page-debt .debt-list-card { padding: 0; overflow: hidden; }
 .debt-list-head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 18px 20px 12px; }
 .debt-list-head-row h2 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
 .debt-list-head-row .sub { color: var(--ink-3); font-size: 12.5px; }
 .debt-list-head-row .btn-row { display: flex; gap: 8px; flex-shrink: 0; }
 .debt-list-head-row #debt-add-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; font-size: 12.5px; }
-.debt-table-head { display: grid; grid-template-columns: minmax(170px,1.3fr) .7fr .45fr .6fr .9fr .7fr auto; gap: 14px; padding: 12px 20px; border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); color: var(--ink-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-.debt-row { display: grid; grid-template-columns: minmax(170px,1.3fr) .7fr .45fr .6fr .9fr .7fr auto; gap: 14px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line-2); font-size: 13px; transition: background 160ms ease; }
+.debt-table-head { display: grid; grid-template-columns: minmax(150px,1.2fr) .7fr .45fr .6fr .9fr .7fr auto; gap: 12px; padding: 11px 20px; border-bottom: 1px solid var(--line-2); color: var(--ink-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+.debt-row { display: grid; grid-template-columns: minmax(150px,1.2fr) .7fr .45fr .6fr .9fr .7fr auto; gap: 12px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line-2); font-size: 13px; transition: background 160ms ease; }
 .debt-row:last-child { border-bottom: none; }
 .debt-row:hover { background: color-mix(in oklch, var(--bg-sunk) 64%, transparent); }
 .debt-row-name { display: flex; align-items: center; gap: 9px; min-width: 0; }
@@ -1532,18 +1647,36 @@ button, select, input, label, a { touch-action: manipulation; }
 .debt-row .acts button.danger:hover { color: var(--neg); border-color: var(--neg); }
 .debt-focus-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); background: color-mix(in oklch, var(--accent) 14%, transparent); padding: 2px 7px; border-radius: 20px; flex-shrink: 0; }
 #debt-list .page-stub { border: none; }
+/* Net-monthly total pinned to the bottom of the plan card (flex:0 child below the
+   scroll area), mirroring the Balances TOTAL row. */
+.debt-total-row { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 20px; border-top: 2px solid var(--line); background: color-mix(in oklch, var(--bg-sunk) 55%, var(--bg-elev)); }
+.debt-total-row[hidden] { display: none; }
+.debt-total-label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); }
+.debt-total-label small { font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; text-transform: none; color: var(--ink-4); font-variant-numeric: tabular-nums; }
+.debt-total-val { font-family: "IBM Plex Mono", monospace; font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.debt-total-val.pos { color: var(--pos); }
+.debt-total-val.neg { color: var(--neg); }
+/* Kind subheadings inside the table (Debt / Transfers / Income) — mirrors the
+   cosmetic type-subheadings on the Balances grid. */
+.debt-group-head { padding: 8px 20px 6px; background: color-mix(in oklch, var(--bg-sunk) 45%, var(--bg-elev)); color: var(--ink-3); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--line-2); }
+/* Muted placeholder cells for income/transfer rows (columns that only apply to debts) */
+.debt-row .na, .debt-row-cleared.na { color: var(--ink-4); }
 
-.debt-savings { background: var(--accent-soft); color: var(--accent-ink); border-radius: 10px; padding: 12px 15px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
-.debt-stall { background: var(--neg-soft); color: var(--neg); border-radius: 10px; padding: 12px 15px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
-.debt-steps { display: flex; flex-direction: column; gap: 0; }
-.debt-step { display: flex; align-items: center; gap: 13px; padding: 12px 4px; border-bottom: 1px solid var(--line-2); }
-.debt-step:last-child { border-bottom: none; }
-.debt-step-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12.5px; font-weight: 700; }
-.debt-step-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
-.debt-step-meta { font-size: 11.5px; color: var(--ink-4); margin-top: 2px; font-variant-numeric: tabular-nums; }
+/* Balance-by-debt mini breakdown (under the chart, right pane) */
+.debt-mini { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 11px; }
+.debt-mini-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); margin-bottom: 1px; }
+.debt-mini-row { display: flex; flex-direction: column; gap: 5px; }
+.debt-mini-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.debt-mini-name { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.debt-mini-val { flex-shrink: 0; font-family: "IBM Plex Mono", monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.debt-mini-bar { height: 7px; border-radius: 4px; background: var(--bg-sunk); overflow: hidden; }
+.debt-mini-fill { display: block; height: 100%; border-radius: 4px; min-width: 2px; }
 
+@media (max-width: 1080px) {
+  .debt-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 820px) {
-  .debt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .debt-chip { flex-basis: calc(50% - 4px); }
   .debt-table-head { display: none; }
   .debt-row { grid-template-columns: 1fr auto; gap: 10px; }
   .debt-row > span:not(.debt-row-name):not(.acts) { grid-column: 1 / -1; }

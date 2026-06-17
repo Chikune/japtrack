@@ -121,152 +121,199 @@ function _fmtMonthYear(d) {
 }
 
 /* ── Render ──────────────────────────────────────────────────────────────── */
+// Strategy + extra-payment controls were removed from the page; the projection
+// is always Avalanche (highest-APR first) on the minimum payments alone.
+const DEBT_STRATEGY = "avalanche";
+const DEBT_EXTRA = 0;
+
+// Each item is one of three kinds. Colour is derived from the kind everywhere
+// (debt = red, transfer = purple, income = green) — there is no per-item colour.
+// Only "debt" items feed the payoff projection / KPIs / breakdown; transfers and
+// income are tracked-only planned line items shown in their own table sections.
+const KIND_ORDER = ["debt", "transfer", "income"];
+const KIND_LABEL = { debt: "Debt", transfer: "Transfers", income: "Income" };
+const KIND_COLORS = { debt: "var(--neg)", transfer: "#a06cd5", income: "var(--pos)" };
+function _debtKind(d) { return d.kind || "debt"; }
+
 function renderDebt() {
-  const debts = getDebts();
-  const st = getDebtSettings();
-
-  // Sync controls to saved settings
-  const seg = document.getElementById("debt-strategy-seg");
-  if (seg) seg.querySelectorAll("button").forEach(b =>
-    b.setAttribute("aria-pressed", b.dataset.strategy === st.strategy ? "true" : "false"));
-  const extraInp = document.getElementById("debt-extra");
-  if (extraInp && document.activeElement !== extraInp) extraInp.value = st.extra || "";
-
-  const hint = document.getElementById("debt-strategy-hint");
-  if (hint) hint.textContent = st.strategy === "snowball"
-    ? "Snowball: clears your smallest balance first for quick momentum."
-    : "Avalanche: targets your highest interest rate first to minimise total interest.";
+  const items = getDebts();
+  const debts = items.filter(d => _debtKind(d) === "debt");
 
   const listSub = document.getElementById("debt-list-sub");
   const list = document.getElementById("debt-list");
   const kpis = document.getElementById("debt-kpis");
-  const planSec = document.getElementById("debt-plan-section");
-  const plan = document.getElementById("debt-plan");
-  const chartSec = document.getElementById("debt-chart-section");
-
+  const grid = document.getElementById("debt-grid");
   const tblHead = document.querySelector("#page-debt .debt-table-head");
-  if (!debts.length) {
-    if (listSub) listSub.textContent = "Add your credit cards, loans or overdrafts";
+
+  // Full empty state: nothing planned at all.
+  if (!items.length) {
+    if (listSub) listSub.textContent = "Add debts, planned transfers or income";
     if (tblHead) tblHead.style.display = "none";
-    if (list) list.innerHTML = `<div class="page-stub"><h3>No debts added yet</h3><div>Add your credit cards, loans, or overdrafts to see your fastest route to debt-free.</div></div>`;
-    if (kpis) kpis.innerHTML = "";
-    if (planSec) planSec.hidden = true;
-    if (chartSec) chartSec.hidden = true;
+    if (list) list.innerHTML = `<div class="page-stub"><h3>Nothing planned yet</h3><div>Add debts, planned transfers to savings, or income to build your projection.</div></div>`;
+    if (kpis) { kpis.innerHTML = ""; kpis.style.display = "none"; }
+    const totRow0 = document.getElementById("debt-total-row");
+    if (totRow0) totRow0.hidden = true;
+    if (grid) grid.classList.add("no-viz");
     return;
   }
   if (tblHead) tblHead.style.display = "";
 
+  // Both fixed boxes stay put whenever there is any data — the right pane is only
+  // hidden in the fully-empty state above. The projection / chips / breakdown are
+  // debt-only; when there are no debts the chart renders an empty placeholder rather
+  // than hiding (which previously reflowed the layout and ballooned a stale chart).
+  const hasDebts = debts.length > 0;
+  if (grid) grid.classList.remove("no-viz");
+  if (kpis) kpis.style.display = "";
+
   const totalBal = debts.reduce((s, d) => s + (+d.balance || 0), 0);
   const totalMin = debts.reduce((s, d) => s + (+d.min || 0), 0);
-  if (listSub) listSub.textContent = `${debts.length} debt${debts.length > 1 ? "s" : ""} · ${fmtGBP(totalBal)} owed · ${fmtGBP(totalMin)}/mo minimum`;
+  if (listSub) {
+    const nInc = items.filter(d => _debtKind(d) === "income").length;
+    const nTfr = items.filter(d => _debtKind(d) === "transfer").length;
+    const parts = [];
+    if (hasDebts) parts.push(`${debts.length} debt${debts.length > 1 ? "s" : ""} · ${fmtGBP(totalBal)} owed · ${fmtGBP(totalMin)}/mo min`);
+    if (nTfr) parts.push(`${nTfr} transfer${nTfr > 1 ? "s" : ""}`);
+    if (nInc) parts.push(`${nInc} income`);
+    listSub.textContent = parts.join(" · ");
+  }
 
-  const sim = simulateDebtPayoff(debts, st.strategy, st.extra);
-  // Compare with the other strategy + with mins-only, to show savings
-  const minOnly = simulateDebtPayoff(debts, st.strategy, 0);
-  const interestSaved = Math.max(0, minOnly.totalInterest - sim.totalInterest);
-  const monthsSaved = (minOnly.stalled || sim.stalled) ? null : Math.max(0, minOnly.months - sim.months);
+  // Net monthly cashflow pinned to the card bottom: income − transfers − debt minimums.
+  const totIncome = items.filter(d => _debtKind(d) === "income").reduce((s, d) => s + (+d.amount || 0), 0);
+  const totTransfer = items.filter(d => _debtKind(d) === "transfer").reduce((s, d) => s + (+d.amount || 0), 0);
+  const net = totIncome - totTransfer - totalMin;
+  const totRow = document.getElementById("debt-total-row");
+  const netEl = document.getElementById("debt-net-val");
+  const netSub = document.getElementById("debt-total-sub");
+  if (totRow) totRow.hidden = false;
+  if (netEl) {
+    netEl.className = "debt-total-val blur " + (net > 0 ? "pos" : net < 0 ? "neg" : "");
+    netEl.textContent = `${net >= 0 ? "+" : "−"}${fmtGBP(Math.abs(net), { dp: 0 })}/mo`;
+  }
+  if (netSub) netSub.textContent = `${fmtGBP(totIncome, { dp: 0 })} in · ${fmtGBP(totTransfer + totalMin, { dp: 0 })} out`;
 
-  // KPIs
+  // Debt-only payoff simulation (null when there are no debts).
+  const sim = hasDebts ? simulateDebtPayoff(debts, DEBT_STRATEGY, DEBT_EXTRA) : null;
+
+  // KPI chips — always shown; zeroed when there are no debts.
   if (kpis) {
-    const I = _debtKpiIcons();
-    const cards = [
-      { label: "Total debt", value: fmtGBP(totalBal, { dp: 0 }), sub: `${debts.length} account${debts.length > 1 ? "s" : ""}`, ic: I.coins, tone: "" },
-      { label: "Debt-free", value: sim.stalled ? "Never" : _fmtMonthYear(sim.debtFreeDate), sub: sim.stalled ? "payments too low" : _fmtMonths(sim.months), cls: sim.stalled ? "neg" : "pos", ic: I.flag, tone: sim.stalled ? "neg" : "pos" },
-      { label: "Total interest", value: fmtGBP(sim.totalInterest, { dp: 0 }), sub: "over the full plan", cls: "neg", ic: I.percent, tone: "neg" },
-      { label: "Monthly payment", value: fmtGBP(sim.totalMonthly, { dp: 0 }), sub: `${fmtGBP(totalMin, { dp: 0 })} min + ${fmtGBP(+st.extra || 0, { dp: 0 })} extra`, ic: I.wallet, tone: "" },
+    const chips = [
+      { label: "Total debt", value: fmtGBP(totalBal, { dp: 0 }), cls: "" },
+      { label: "Debt-free", value: !sim ? "—" : (sim.stalled ? "Never" : _fmtMonthYear(sim.debtFreeDate)), cls: !sim ? "" : (sim.stalled ? "neg" : "pos") },
+      { label: "Total interest", value: fmtGBP(sim ? sim.totalInterest : 0, { dp: 0 }), cls: "neg" },
+      { label: "Monthly payment", value: fmtGBP(sim ? sim.totalMonthly : 0, { dp: 0 }), cls: "" },
     ];
-    kpis.innerHTML = cards.map(c => `
-      <div class="debt-kpi-card">
-        <div class="debt-kpi-copy">
-          <span>${c.label}</span>
-          <b class="blur ${c.cls || ""}">${c.value}</b>
-          <small>${c.sub}</small>
-        </div>
-        <span class="debt-kpi-ic ${c.tone}">${c.ic}</span>
-      </div>`).join("");
+    kpis.innerHTML = chips.map(c =>
+      `<div class="debt-chip"><span>${c.label}</span><b class="blur ${c.cls}">${c.value}</b></div>`).join("");
   }
 
-  // Payoff projection chart
-  if (chartSec) {
-    if (sim.stalled || sim.series.length < 2) {
-      chartSec.hidden = true;
-    } else {
-      chartSec.hidden = false;
-      const sub = document.getElementById("debt-chart-sub");
-      if (sub) sub.textContent = `${fmtGBP(sim.totalMonthly, { dp: 0 })}/mo until ${_fmtMonthYear(sim.debtFreeDate)}`;
-      document.getElementById("debt-chart").innerHTML = _debtPayoffChart(sim);
+  // Projection chart — always rendered into its fixed box. With debts it draws the
+  // payoff line; without debts it shows a muted placeholder (this also clears any
+  // stale SVG, which is the actual fix for the "exploding chart" bug).
+  const chartEl = document.getElementById("debt-chart");
+  const chartSub = document.getElementById("debt-chart-sub");
+  if (chartEl) {
+    if (sim && sim.series.length >= 2) {
+      if (chartSub) chartSub.textContent = sim.stalled
+        ? `${fmtGBP(sim.totalMonthly, { dp: 0 })}/mo · some debts never clear`
+        : `${fmtGBP(sim.totalMonthly, { dp: 0 })}/mo until ${_fmtMonthYear(sim.debtFreeDate)}`;
+      chartEl.innerHTML = (sim.stalled
+        ? `<div class="debt-stall-note">⚠️ At these minimum payments, some debts never clear — interest outpaces the payment.</div>`
+        : "") + _debtPayoffChart(sim);
       _wireDebtChartHover(sim);
+    } else {
+      if (chartSub) chartSub.textContent = "";
+      chartEl.innerHTML = `<div class="debt-chart-empty">Add a debt to project your payoff</div>`;
     }
   }
 
-  // Debt cards (ordered by the active strategy's attack priority)
-  const ordered = [...debts].sort((a, b) => {
-    if (st.strategy === "snowball") return (+a.balance || 0) - (+b.balance || 0) || (+b.apr || 0) - (+a.apr || 0);
-    return (+b.apr || 0) - (+a.apr || 0) || (+a.balance || 0) - (+b.balance || 0);
-  });
+  // Balance-by-debt breakdown — populated with debts, cleared otherwise.
+  if (hasDebts) renderDebtBreakdown(debts, totalBal);
+  else { const bd = document.getElementById("debt-breakdown"); if (bd) bd.innerHTML = ""; }
+
+  // Sectioned table: Debt / Transfers / Income, each shown only when non-empty.
   if (list) {
-    list.innerHTML = ordered.map((d, idx) => {
-      const r = sim.perDebt.find(x => x.id === d.id);
-      const cleared = r && r.paidMonth
-        ? `<b>${_fmtMonthYear(_addMonths(new Date(), r.paidMonth))}</b><small>${_fmtMonths(r.paidMonth)}</small>`
-        : `<b class="neg">never</b><small>payment too low</small>`;
-      const color = d.color || "var(--accent)";
-      const focus = idx === 0 ? `<span class="debt-focus-badge" title="Next to attack with your extra payment">focus</span>` : "";
-      const safeId = String(d.id).replace(/'/g, "\\'");
-      // Edit mode: pencil, "create bill" (Bills & Subs tie-in), and delete.
-      const acts = _debtEditMode ? `<span class="acts">
-          <button title="Edit" onclick="openDebtModal('${safeId}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
-          <button title="Add to Bills &amp; Subscriptions (monthly repayment bill)" onclick="debtCreateBill('${safeId}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 13v5M9.5 15.5h5"/></svg></button>
-          <button class="danger" title="Delete" onclick="deleteDebtRow('${safeId}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
-        </span>` : `<span class="acts"></span>`;
-      return `<div class="debt-row">
-        <span class="debt-row-name"><i class="debt-dot" style="background:${color}"></i><b>${_esc(d.name)}</b>${focus}</span>
-        <span class="num blur">${fmtGBP(+d.balance || 0)}</span>
-        <span class="num">${(+d.apr || 0).toFixed(1)}%</span>
-        <span class="num blur">${fmtGBP(+d.min || 0)}</span>
-        <span class="debt-row-cleared">${cleared}</span>
-        <span class="num blur neg">${r ? fmtGBP(r.interestPaid, { dp: 0 }) : "—"}</span>
-        ${acts}
-      </div>`;
-    }).join("");
-  }
-
-  // Payoff plan (order + savings callout)
-  if (planSec && plan) {
-    planSec.hidden = false;
-    document.getElementById("debt-plan-sub").textContent =
-      st.strategy === "snowball" ? "Smallest balance first" : "Highest interest first";
-    let savingsHtml = "";
-    if (interestSaved > 1 && (+st.extra || 0) > 0) {
-      savingsHtml = `<div class="debt-savings">💡 Your ${fmtGBP(+st.extra)}/mo extra saves <b>${fmtGBP(interestSaved)}</b> in interest${monthsSaved ? ` and clears your debt <b>${_fmtMonths(monthsSaved)}</b> sooner` : ""}.</div>`;
-    }
-    let stallHtml = "";
-    if (sim.stalled) {
-      stallHtml = `<div class="debt-stall">⚠️ With these minimum payments, some debts never clear — the interest outpaces the payment. Increase a minimum or add an extra monthly payment above.</div>`;
-    }
-    const steps = sim.order.map((r, i) => {
-      const d = debts.find(x => x.id === r.id) || r;
-      const color = d.color || "var(--accent)";
-      return `<div class="debt-step">
-        <div class="debt-step-num" style="background:${color}">${i + 1}</div>
-        <div class="debt-step-body">
-          <div class="debt-step-name">${_esc(r.name)}</div>
-          <div class="debt-step-meta">cleared by ${_fmtMonthYear(_addMonths(new Date(), r.paidMonth))} · ${_fmtMonths(r.paidMonth)} · ${fmtGBP(r.interestPaid)} interest</div>
-        </div>
-      </div>`;
-    }).join("");
-    plan.innerHTML = savingsHtml + stallHtml + `<div class="debt-steps">${steps}</div>`;
+    let html = "";
+    KIND_ORDER.forEach(kind => {
+      let inKind = items.filter(d => _debtKind(d) === kind);
+      if (!inKind.length) return;
+      inKind = (kind === "debt")
+        ? inKind.sort((a, b) => (+b.apr || 0) - (+a.apr || 0) || (+a.balance || 0) - (+b.balance || 0))
+        : inKind.sort((a, b) => (+b.amount || 0) - (+a.amount || 0));
+      html += `<div class="debt-group-head">${KIND_LABEL[kind]}</div>`;
+      html += inKind.map((d, i) => _debtRowHtml(d, i, kind, sim)).join("");
+    });
+    list.innerHTML = html;
   }
 }
 
-function _debtKpiIcons() {
-  return {
-    coins:   `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg>`,
-    flag:    `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>`,
-    percent: `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
-    wallet:  `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19"/><path d="M16 14.5h3"/></svg>`,
-  };
+// One table row. Debt rows keep the full payoff columns; income/transfer rows show
+// their monthly amount in the Balance column and a muted — for the debt-only columns.
+function _debtRowHtml(d, idx, kind, sim) {
+  const color = KIND_COLORS[kind] || "var(--accent)";
+  const safeId = String(d.id).replace(/'/g, "\\'");
+  const isDebt = kind === "debt";
+  const EDIT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`;
+  const TRASH_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
+  // Bill tie-in stays debt-only.
+  const billBtn = isDebt
+    ? `<button title="Add to Bills &amp; Subscriptions (monthly repayment bill)" onclick="debtCreateBill('${safeId}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 13v5M9.5 15.5h5"/></svg></button>`
+    : "";
+  const acts = _debtEditMode ? `<span class="acts">
+      <button title="Edit" onclick="openDebtModal('${safeId}')">${EDIT_SVG}</button>
+      ${billBtn}
+      <button class="danger" title="Delete" onclick="deleteDebtRow('${safeId}')">${TRASH_SVG}</button>
+    </span>` : `<span class="acts"></span>`;
+
+  if (isDebt) {
+    const r = sim ? sim.perDebt.find(x => x.id === d.id) : null;
+    const cleared = r && r.paidMonth
+      ? `<b>${_fmtMonthYear(_addMonths(new Date(), r.paidMonth))}</b><small>${_fmtMonths(r.paidMonth)}</small>`
+      : `<b class="neg">never</b><small>payment too low</small>`;
+    const focus = idx === 0 ? `<span class="debt-focus-badge" title="Next to clear with the freed-up payments">focus</span>` : "";
+    return `<div class="debt-row">
+      <span class="debt-row-name"><i class="debt-dot" style="background:${color}"></i><b>${_esc(d.name)}</b>${focus}</span>
+      <span class="num blur">${fmtGBP(+d.balance || 0)}</span>
+      <span class="num">${(+d.apr || 0).toFixed(1)}%</span>
+      <span class="num blur">${fmtGBP(+d.min || 0)}</span>
+      <span class="debt-row-cleared">${cleared}</span>
+      <span class="num blur neg">${r ? fmtGBP(r.interestPaid, { dp: 0 }) : "—"}</span>
+      ${acts}
+    </div>`;
+  }
+  // Income / transfer: monthly amount in the Balance column, muted — elsewhere.
+  return `<div class="debt-row">
+    <span class="debt-row-name"><i class="debt-dot" style="background:${color}"></i><b>${_esc(d.name)}</b></span>
+    <span class="num blur">${fmtGBP(+d.amount || 0, { dp: 0 })}/mo</span>
+    <span class="num na">—</span>
+    <span class="num na">—</span>
+    <span class="debt-row-cleared na">—</span>
+    <span class="num na">—</span>
+    ${acts}
+  </div>`;
 }
+
+/* ── Balance-by-debt mini breakdown (right pane, under the chart) ─────────────
+ * One proportional bar per debt so the right pane always shows something useful,
+ * even when the projection is degenerate (e.g. a single small debt). */
+function renderDebtBreakdown(debts, totalBal) {
+  const el = document.getElementById("debt-breakdown");
+  if (!el) return;
+  const color = KIND_COLORS.debt;
+  const rows = [...debts].sort((a, b) => (+b.balance || 0) - (+a.balance || 0)).map(d => {
+    const bal = Math.max(0, +d.balance || 0);
+    const pct = totalBal > 0 ? (bal / totalBal) * 100 : 0;
+    return `<div class="debt-mini-row">
+      <div class="debt-mini-top">
+        <span class="debt-mini-name"><i class="debt-dot" style="background:${color}"></i>${_esc(d.name)}</span>
+        <span class="debt-mini-val blur">${fmtGBP(bal, { dp: 0 })} · ${pct.toFixed(0)}%</span>
+      </div>
+      <div class="debt-mini-bar"><span class="debt-mini-fill" style="width:${pct.toFixed(1)}%;background:${color}"></span></div>
+    </div>`;
+  }).join("");
+  el.innerHTML = `<div class="debt-mini-title">Balance by debt</div>${rows}`;
+}
+
 function _esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -284,7 +331,8 @@ function _debtPayoffChart(sim) {
   if (!series || series.length < 2) return "";
   const maxBal = Math.max(...series.map(p => p.remaining), 1);
   const yMax = maxBal * 1.08;
-  const w = 920, h = 300, left = 64, right = 24, top = 18, bottom = 40;
+  // Portrait-ish geometry tuned for the narrow right-hand column.
+  const w = 480, h = 320, left = 62, right = 30, top = 16, bottom = 34;
   const plotW = w - left - right, plotH = h - top - bottom;
   const n = series.length;
   const x = i => left + (n <= 1 ? 0 : i / (n - 1) * plotW);
@@ -294,8 +342,8 @@ function _debtPayoffChart(sim) {
   const baseY = y(0);
   const fill = `${path} L${pts[n-1].x.toFixed(1)},${baseY.toFixed(1)} L${pts[0].x.toFixed(1)},${baseY.toFixed(1)} Z`;
   const tickVals = [yMax, yMax / 2, 0];
-  // Label roughly 6 points across the x-axis (plus the last one).
-  const step = Math.max(1, Math.ceil(n / 6));
+  // Label roughly 4 points across the narrower x-axis (plus the last one).
+  const step = Math.max(1, Math.ceil(n / 4));
   // Stash geometry so the hover handler can map cursor → nearest point.
   _debtChartGeo = { pts, w, h, top, baseY };
   // Static marker dots on the labelled points; the hover layer adds an interactive
@@ -366,17 +414,27 @@ function _wireDebtChartHover(sim) {
 }
 
 /* ── Modal (create / edit) ──────────────────────────────────────────────── */
+// Show/hide the kind-specific field rows + retitle, based on the Type select.
+function _debtSyncModalFields() {
+  const kind = document.getElementById("debt-m-kind").value;
+  const isDebt = kind === "debt";
+  document.querySelectorAll("#debt-modal .debt-m-debtfield").forEach(el => { el.style.display = isDebt ? "" : "none"; });
+  document.querySelectorAll("#debt-modal .debt-m-amtfield").forEach(el => { el.style.display = isDebt ? "none" : ""; });
+  document.getElementById("debt-modal-title").textContent =
+    (_debtEditId ? "Edit " : "Add ") + (KIND_LABEL[kind] || "item").toLowerCase().replace(/s$/, "");
+}
 function openDebtModal(id) {
   _debtEditId = id || null;
-  const debts = getDebts();
-  const d = id ? debts.find(x => String(x.id) === String(id)) : null;
-  document.getElementById("debt-modal-title").textContent = d ? "Edit debt" : "Add debt";
+  const d = id ? getDebts().find(x => String(x.id) === String(id)) : null;
+  const kind = d ? _debtKind(d) : "debt";
+  document.getElementById("debt-m-kind").value = kind;
   document.getElementById("debt-m-name").value = d ? (d.name || "") : "";
   document.getElementById("debt-m-balance").value = d ? (d.balance ?? "") : "";
   document.getElementById("debt-m-apr").value = d ? (d.apr ?? "") : "";
   document.getElementById("debt-m-min").value = d ? (d.min ?? "") : "";
-  document.getElementById("debt-m-color").value = d ? (d.color || "#d97757") : "#d97757";
+  document.getElementById("debt-m-amount").value = d ? (d.amount ?? "") : "";
   document.getElementById("debt-m-delete").style.display = d ? "" : "none";
+  _debtSyncModalFields();
   document.getElementById("debt-modal").hidden = false;
   setTimeout(() => document.getElementById("debt-m-name").focus(), 30);
 }
@@ -385,19 +443,25 @@ function closeDebtModal() {
   _debtEditId = null;
 }
 function saveDebtFromModal() {
+  const kind = document.getElementById("debt-m-kind").value;
   const name = document.getElementById("debt-m-name").value.trim();
-  const balance = parseFloat(document.getElementById("debt-m-balance").value);
-  const apr = parseFloat(document.getElementById("debt-m-apr").value);
-  const min = parseFloat(document.getElementById("debt-m-min").value);
-  const color = document.getElementById("debt-m-color").value;
-  if (!name) { showToast("Give the debt a name"); return; }
-  if (!(balance >= 0)) { showToast("Enter a valid balance"); return; }
+  if (!name) { showToast("Give it a name"); return; }
+  let fields;
+  if (kind === "debt") {
+    const balance = parseFloat(document.getElementById("debt-m-balance").value);
+    if (!(balance >= 0)) { showToast("Enter a valid balance"); return; }
+    fields = { balance, apr: parseFloat(document.getElementById("debt-m-apr").value) || 0, min: parseFloat(document.getElementById("debt-m-min").value) || 0, amount: 0 };
+  } else {
+    const amount = parseFloat(document.getElementById("debt-m-amount").value);
+    if (!(amount > 0)) { showToast("Enter a monthly amount"); return; }
+    fields = { balance: 0, apr: 0, min: 0, amount };
+  }
   const debts = getDebts();
   if (_debtEditId) {
     const d = debts.find(x => String(x.id) === String(_debtEditId));
-    if (d) { d.name = name; d.balance = balance; d.apr = apr || 0; d.min = min || 0; d.color = color; }
+    if (d) { d.name = name; d.kind = kind; Object.assign(d, fields); delete d.color; }
   } else {
-    debts.push({ id: Date.now() + Math.floor(Math.random() * 1000), name, balance, apr: apr || 0, min: min || 0, color });
+    debts.push({ id: Date.now() + Math.floor(Math.random() * 1000), name, kind, ...fields });
   }
   setDebts(debts);
   closeDebtModal();
@@ -411,12 +475,12 @@ function deleteDebtFromModal() {
     renderDebt();
   };
   if (typeof confirmDialog === "function") {
-    confirmDialog({ title: "Delete this debt?", message: "It will be removed from your payoff plan.", confirmLabel: "Delete", danger: true }, run);
+    confirmDialog({ title: "Delete this item?", message: "It will be removed from your plan.", confirmLabel: "Delete", danger: true }, run);
   } else { run(); }
 }
 // Inline delete from the table's Edit mode (no modal round-trip).
 function deleteDebtRow(id) {
-  confirmDialog({ title: "Delete this debt?", message: "It will be removed from your payoff plan.", confirmLabel: "Delete", danger: true }, () => {
+  confirmDialog({ title: "Delete this item?", message: "It will be removed from your plan.", confirmLabel: "Delete", danger: true }, () => {
     setDebts(getDebts().filter(x => String(x.id) !== String(id)));
     renderDebt();
   });
@@ -468,18 +532,7 @@ function debtCreateBill(id) {
   if (cancel) cancel.addEventListener("click", closeDebtModal);
   const del = document.getElementById("debt-m-delete");
   if (del) del.addEventListener("click", deleteDebtFromModal);
+  document.getElementById("debt-m-kind")?.addEventListener("change", _debtSyncModalFields);
   const modal = document.getElementById("debt-modal");
   if (modal) modal.addEventListener("click", e => { if (e.target.id === "debt-modal") closeDebtModal(); });
-
-  const seg = document.getElementById("debt-strategy-seg");
-  if (seg) seg.addEventListener("click", e => {
-    const b = e.target.closest("button[data-strategy]"); if (!b) return;
-    const s = getDebtSettings(); s.strategy = b.dataset.strategy; setDebtSettings(s);
-    renderDebt();
-  });
-  const extra = document.getElementById("debt-extra");
-  if (extra) extra.addEventListener("input", () => {
-    const s = getDebtSettings(); s.extra = Math.max(0, parseFloat(extra.value) || 0); setDebtSettings(s);
-    renderDebt();
-  });
 })();

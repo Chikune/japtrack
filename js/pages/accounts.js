@@ -493,10 +493,15 @@ function renderAccGrid() {
     return `<td class="acc-g-total${cur}" data-total-idx="${start + i}">${fmtGBP(_accDraftTotal(m), { dp: 0 })}</td>`;
   }).join("");
   const totalRow = `<tr class="acc-g-totalrow"><th class="acc-g-name acc-g-totallabel" scope="row">Total</th><td class="acc-g-nav acc-g-navl"></td>${totalCells}<td class="acc-g-nav acc-g-navr"></td><td></td></tr>`;
+  // Spacer row absorbs all spare height (table is height:100%) so the Total row is
+  // pinned to the card's bottom edge even when there are only a few accounts.
+  // colspan MUST equal the real column count — under table-layout:fixed an oversized
+  // colspan inflates the table's column count and collapses the month columns.
+  const spacerRow = `<tr class="acc-g-spacer" aria-hidden="true"><td colspan="${colCount}"></td></tr>`;
 
   wrap.innerHTML = `<table class="acc-bal-grid">
     <thead><tr><th class="acc-g-corner">Account</th>${navL}${monthHead}${navR}<th class="acc-g-sparkhead">6M</th></tr></thead>
-    <tbody>${body}${totalRow}</tbody>
+    <tbody>${body}${spacerRow}${totalRow}</tbody>
   </table>`;
   wrap.classList.toggle("acc-editing", _accEditMode);
 
@@ -611,8 +616,14 @@ function _accMountPop(pop, anchor) {
   document.body.appendChild(pop);
   const r = anchor.getBoundingClientRect();
   pop.style.position = "fixed";
-  pop.style.top = `${r.bottom + 6}px`;
-  pop.style.left = `${Math.max(12, Math.min(r.left, window.innerWidth - pop.offsetWidth - 12))}px`;
+  const m = 12;
+  // Always open DOWNWARD from the anchor; cap the height to the space available below
+  // and let the popover scroll internally if its content is taller (never flip upward).
+  const top = r.bottom + 6;
+  pop.style.top = `${top}px`;
+  pop.style.maxHeight = `${Math.max(140, window.innerHeight - top - m)}px`;
+  pop.style.overflowY = "auto";
+  pop.style.left = `${Math.max(m, Math.min(r.left, window.innerWidth - pop.offsetWidth - m))}px`;
   setTimeout(() => document.addEventListener("mousedown", _accPopOutside), 0);
 }
 function _accAddMonthPop(anchor) {
@@ -648,7 +659,7 @@ function _accAddAccountPop(anchor) {
   const pop = document.createElement("div");
   pop.className = "acc-pop"; pop.id = "acc-pop";
   const typeOpts = (_accTypes.length ? _accTypes : ["Accounts"]).map(t => `<option value="${_accEsc(t)}">${t}</option>`).join("");
-  pop.innerHTML = `<label>Account name</label><input type="text" id="acc-pop-name" placeholder="e.g. Monzo" autocomplete="off"><label class="acc-pop-l2">Type</label><select id="acc-pop-type">${typeOpts}</select><div class="acc-pop-row"><button class="acc-pop-cancel">Cancel</button><button class="acc-pop-add">Add</button></div>`;
+  pop.innerHTML = `<label>Account name</label><input type="text" id="acc-pop-name" placeholder="e.g. Monzo" autocomplete="off"><label class="acc-pop-l2">Type</label><select id="acc-pop-type">${typeOpts}</select><label class="acc-pop-l2">Note</label><input type="text" id="acc-pop-note" placeholder="optional" autocomplete="off"><div class="acc-pop-row"><button class="acc-pop-cancel">Cancel</button><button class="acc-pop-add">Add</button></div>`;
   _accMountPop(pop, anchor);
   const nameInp = pop.querySelector("#acc-pop-name"); nameInp.focus();
   pop.querySelector(".acc-pop-cancel").addEventListener("click", _accClosePops);
@@ -657,7 +668,8 @@ function _accAddAccountPop(anchor) {
     if (!name) { nameInp.focus(); return; }
     if (_accBuckets.find(b => b.id.toLowerCase() === name.toLowerCase())) { showToast("That account already exists"); return; }
     const type = pop.querySelector("#acc-pop-type").value;
-    _accBuckets.push({ id: name, color: ACC_PALETTE[_accBuckets.length % ACC_PALETTE.length], type, note: "" });
+    const note = pop.querySelector("#acc-pop-note").value.trim();
+    _accBuckets.push({ id: name, color: ACC_PALETTE[_accBuckets.length % ACC_PALETTE.length], type, note });
     _accDraft.forEach(m => { m.vals[name] = 0; });
     _accClosePops(); _accSetDirty(); renderAccGrid();
   });

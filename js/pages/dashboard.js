@@ -1630,6 +1630,17 @@ window.addEventListener("resize", () => {
 
 // Home period nav + NW chart range/filter — delegated so they survive innerHTML rebuilds.
 document.addEventListener("click", e => {
+  const rf = e.target.closest("#home-refresh");
+  if (rf) {
+    // One-shot spin for feedback, then re-render the active overview page.
+    // (Reports cards live in renderHomeAll; Forecast has its own renderer.)
+    rf.classList.remove("spinning"); void rf.offsetWidth; rf.classList.add("spinning");
+    rf.addEventListener("animationend", () => rf.classList.remove("spinning"), { once: true });
+    if (_activePage === "forecast" && typeof renderForecast === "function") renderForecast();
+    else renderHomeAll();
+    if (typeof showToast === "function") showToast("Refreshed");
+    return;
+  }
   const pv = e.target.closest("#home-period-prev, #home-period-next");
   if (pv) {
     if (pv.id === "home-period-prev") { const [y, m] = prevMonth(_viewMonth.y, _viewMonth.m); _viewMonth = { y, m }; }

@@ -6,6 +6,7 @@ let _fcModalType = "in";
 let _fcModalRec = "monthly";
 let _fcMonths = 12;
 let _fcScenario = null;
+let _fcView = "income"; // "income" (spendable balance) | "networth" (total net worth)
 
 function renderForecast() {
   if (!document.getElementById("fc-kpis")) return;
@@ -16,7 +17,6 @@ function renderForecast() {
   renderForecastKPIs(months);
   renderForecastChart(months);
   renderBalanceForecast(months);
-  renderForecastOutlook(months);
   renderForecastInsights(months);
   renderForecastTable();
   renderForecastScenarios();
@@ -43,26 +43,69 @@ function renderBalanceForecast(months) {
     grid.innerHTML = `<div class="fc-empty-chart">Add an account snapshot to see your projected balance.</div>`;
     return;
   }
-  const accts = ["__all__", ...last.allocations.map(a => a.cat)];
-  if (!_fcBalanceAcct || !accts.includes(_fcBalanceAcct)) {
-    _fcBalanceAcct = "__all__";
-  }
-  const accountLabel = a => a === "__all__" ? "All accounts" : a;
-  seg.innerHTML = accts.map(a => `<button type="button" data-acct="${a.replace(/"/g,'&quot;')}" aria-pressed="${a === _fcBalanceAcct}">${accountLabel(a)}</button>`).join("");
-  seg.querySelectorAll("button").forEach(btn => {
-    btn.addEventListener("click", () => { _fcBalanceAcct = btn.dataset.acct; renderBalanceForecast(months); renderForecastOutlook(months); renderForecastInsights(months); });
-  });
+  // View toggle: net income (spendable balance) vs net worth (assets − liabilities).
+  const isNW = _fcView === "networth";
+  document.querySelectorAll("#fc-view-seg button").forEach(b =>
+    b.setAttribute("aria-pressed", (b.dataset.view === _fcView) ? "true" : "false"));
+  const titleEl = document.getElementById("fc-balance-title");
+  const subEl   = document.getElementById("fc-balance-sub");
+  if (titleEl) titleEl.textContent = isNW ? "Net worth over time" : "Net income over time";
+  if (subEl)   subEl.textContent   = isNW
+    ? "Projected total net worth (debt paydown counts as savings)"
+    : "Projected spendable balance, month by month";
 
-  const startBalance = _fcBalanceAcct === "__all__"
+  // Account picker only applies to the spendable-balance view; net worth is whole-portfolio.
+  const accts = ["__all__", ...last.allocations.map(a => a.cat)];
+  if (!_fcBalanceAcct || !accts.includes(_fcBalanceAcct)) _fcBalanceAcct = "__all__";
+  const accountLabel = a => a === "__all__" ? "All accounts" : a;
+  if (isNW) {
+    seg.innerHTML = "";
+    seg.style.display = "none";
+  } else {
+    seg.style.display = "";
+    // Compact dropdown (mirrors the Balances "Interest earned" picker) so the chart
+    // head stays tidy regardless of how many accounts exist.
+    seg.innerHTML = `<button type="button" class="fc-acct-dd" id="fc-acct-dd-btn" aria-haspopup="true">${accountLabel(_fcBalanceAcct)} <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>`;
+    document.getElementById("fc-acct-dd-btn").addEventListener("click", e => {
+      e.stopPropagation();
+      _fcOpenAcctPop(e.currentTarget, accts, accountLabel, months);
+    });
+  }
+
+  const startBalance = isNW
     ? nwTotalE(last)
-    : (last.allocations.find(a => a.cat === _fcBalanceAcct)?.value || 0);
+    : (_fcBalanceAcct === "__all__" ? nwTotalE(last) : (last.allocations.find(a => a.cat === _fcBalanceAcct)?.value || 0));
   let running = startBalance;
   const series = months.map(m => {
-    const net = (m.income || 0) - (m.expenses || 0);
-    running += net;
-    return { ym: m.ym, net, balance: running };
+    // Net worth: paying debt principal is net-worth-neutral (cash → smaller liability),
+    // only interest is a true loss, and transfers stay as your assets (neutral).
+    // Net income: spendable balance, so transfers out reduce it.
+    const delta = isNW
+      ? (m.income || 0) - (m.expenses || 0) + (m.debtPrincipal || 0)
+      : (m.income || 0) - (m.expenses || 0) - (m.transferOut || 0);
+    running += delta;
+    return { ym: m.ym, net: delta, balance: running };
   });
   grid.innerHTML = forecastLineChart(series, startBalance);
+}
+
+// Single-select account popover for the balance chart. Reuses the shared .acc-pop
+// styling + positioner (`_accMountPop`/`_accClosePops`) so it matches the Balances picker.
+function _fcOpenAcctPop(anchor, accts, accountLabel, months) {
+  if (document.getElementById("acc-pop")) { _accClosePops(); return; }
+  if (typeof _accClosePops === "function") _accClosePops();
+  const pop = document.createElement("div");
+  pop.className = "acc-pop"; pop.id = "acc-pop";
+  pop.innerHTML = `<label>Project account</label>` + accts.map(a =>
+    `<button type="button" class="acc-pop-opt${a === _fcBalanceAcct ? " sel" : ""}" data-acct="${(a + "").replace(/"/g, "&quot;")}">${accountLabel(a)}</button>`).join("");
+  _accMountPop(pop, anchor);
+  pop.addEventListener("click", e => {
+    const b = e.target.closest(".acc-pop-opt"); if (!b) return;
+    _fcBalanceAcct = b.dataset.acct;
+    _accClosePops();
+    renderBalanceForecast(months);
+    renderForecastInsights(months);
+  });
 }
 
 /* ────────────────────────────────────────
@@ -250,96 +293,61 @@ function addAllocSlice() {
 /* ── Payment Plans ── */
 let _planEditId = null;
 
+// Payment plans = the debts the user added on the Balance projection page. Each debt is a
+// forecast of future costs (amortising minimum payments). The card is read-only here —
+// clicking routes to Balance projection, where debts are added/edited.
 function renderPlans() {
   const el = document.getElementById("plan-grid");
   if (!el) return;
-  const plans = getPlans();
-  const sym = curSym();
-  const now = new Date();
-  const nowYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const debts = ((typeof getDebts === "function") ? getDebts() : [])
+    .filter(d => (d.kind || "debt") === "debt");
 
-  if (!plans.length) {
+  if (!debts.length) {
     el.innerHTML = `<div class="plan-empty" style="grid-column:1/-1">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" style="display:block;margin:0 auto 10px"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h4m-4 4h8"/></svg>
-      <p>No payment plans yet — click <b>Add plan</b> to track a loan, installment, or spread payment.</p>
+      <p>No debts yet — add them on <b>Balance projection</b> to forecast future costs here.</p>
     </div>`;
     return;
   }
 
-  el.innerHTML = plans.map(p => {
-    const total   = p.total || 0;
-    const payment = p.payment || 0;
-    const paid    = Math.min(p.paid || 0, total);
-    const pct     = total > 0 ? Math.min(paid / total, 1) : 0;
-    const remaining = Math.max(total - paid, 0);
-    const monthsLeft = payment > 0 ? Math.ceil(remaining / payment) : 0;
-    const done    = remaining <= 0.005;
+  // Amortise so each debt has a payoff month + total interest cost.
+  const sim = (typeof simulateDebtPayoff === "function") ? simulateDebtPayoff(debts, "avalanche", 0) : null;
+  const perDebt = (sim && sim.perDebt) ? sim.perDebt : [];
+  const monthLbl = n => {
+    const d = new Date(); d.setMonth(d.getMonth() + n);
+    return d.toLocaleString("default", { month: "short", year: "numeric" });
+  };
 
-    // Payoff month
-    let payoffLabel = "";
-    if (done) {
-      payoffLabel = "Paid off ✓";
-    } else if (payment > 0) {
-      const pDate = new Date(now.getFullYear(), now.getMonth() + monthsLeft, 1);
-      payoffLabel = pDate.toLocaleString("default", { month: "short", year: "numeric" });
-    }
-
-    // Payments made / total
-    const paymentsMade  = payment > 0 ? Math.floor(paid / payment) : 0;
-    const paymentsTotal = payment > 0 ? Math.ceil(total / payment) : 0;
-
-    // Behind schedule?
-    let behind = false;
-    if (!done && p.startMonth && payment > 0) {
-      const [sy, sm] = p.startMonth.split("-").map(Number);
-      const [ny, nm] = nowYM.split("-").map(Number);
-      const monthsElapsed = (ny - sy) * 12 + (nm - sm);
-      const expectedPaid = monthsElapsed * payment;
-      behind = paid < expectedPaid - 0.5;
-    }
-
-    // Fill colour
-    const fillColor = done ? "var(--pos)" : behind ? "var(--warn)" : "var(--accent)";
-
-    const emoji = p.emoji || "💳";
-
-    return `<div class="plan-card fc-payment-card${done ? " complete" : behind ? " behind" : ""}" data-plan-id="${p.id}">
+  el.innerHTML = debts.map(d => {
+    const w = perDebt.find(x => String(x.id) === String(d.id)) || {};
+    const remaining = Math.max(0, +d.balance || 0);
+    const min = Math.max(0, +d.min || 0);
+    const apr = Math.max(0, +d.apr || 0);
+    const paidMonth = w.paidMonth || null;
+    const monthsLeft = paidMonth || (min > 0 ? Math.ceil(remaining / min) : 0);
+    const payoffLabel = paidMonth ? monthLbl(paidMonth) : (min > 0 ? "—" : "no min set");
+    const interestCost = +w.interestPaid || 0;
+    return `<div class="plan-card fc-payment-card" data-debt-id="${d.id}" onclick="switchPage('debt')" title="Manage on Balance projection" style="cursor:pointer">
       <div class="plan-card-head">
-        <div class="plan-ic">${emoji}</div>
+        <div class="plan-ic">💳</div>
         <div class="plan-info">
-          <h4>${p.name || "Untitled plan"}</h4>
-          <div class="sub">${done ? "Paid off" : `${monthsLeft} month${monthsLeft===1?'':'s'} left`}</div>
-        </div>
-        <div class="plan-acts">
-          <button onclick="openPlanModal('${p.id}')" title="Edit" aria-label="Edit ${p.name}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="danger" onclick="deletePlan('${p.id}')" title="Delete" aria-label="Delete ${p.name}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-          </button>
+          <h4>${d.name || "Untitled debt"}</h4>
+          <div class="sub">${monthsLeft ? `${monthsLeft} month${monthsLeft===1?'':'s'} left` : "Future cost"}</div>
         </div>
       </div>
 
       <div class="plan-amount">
-        ${sym}${fmt(remaining)} <span class="of">remaining</span>
-      </div>
-
-      <div class="plan-track">
-        <div class="plan-fill" style="width:${(pct*100).toFixed(1)}%;background:${fillColor}"></div>
+        <span class="blur">${fmtGBP(remaining,{dp:0})}</span> <span class="of">remaining</span>
       </div>
 
       <div class="plan-counters">
-        <div class="plan-counter"><b>${sym}${fmt(payment)}</b> / month</div>
-        <div class="plan-counter"><b>${(pct*100).toFixed(0)}%</b> paid</div>
-        ${!done && paymentsTotal > 0 ? `<div class="plan-counter"><b>${paymentsMade} of ${paymentsTotal}</b> payments</div>` : ""}
+        <div class="plan-counter"><b class="blur">${fmtGBP(min,{dp:0})}</b> / month</div>
+        <div class="plan-counter"><b>${apr.toFixed(apr % 1 ? 1 : 0)}%</b> APR</div>
+        ${interestCost > 0 ? `<div class="plan-counter"><b class="blur">${fmtGBP(interestCost,{dp:0})}</b> interest</div>` : ""}
       </div>
 
       <div class="plan-foot">
-        <span class="plan-payoff${done ? " done" : ""}">${done ? "Paid off ✓" : `Pays off <b>${payoffLabel}</b>`}</span>
-        <button class="plan-log-btn" onclick="logPlanPayment('${p.id}')" ${done ? "disabled" : ""} title="Log one payment">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-          +1 Payment
-        </button>
+        <span class="plan-payoff">Pays off <b>${payoffLabel}</b></span>
       </div>
     </div>`;
   }).join("");
@@ -411,6 +419,23 @@ function buildForecastMonths(now, count) {
   const forecasts = getForecasts();
   const includeScheduled = document.getElementById("fc-include-sched")?.checked !== false;
   const recurring = includeScheduled ? getRecurring() : [];
+
+  // ── Balance-projection integration ──────────────────────────────────────────
+  // Future costs/income the user planned on the Balance projection page feed the
+  // forecast: debts (their amortising minimum payments), income items, and savings
+  // transfers. Debts already mirrored as a scheduled "Repayments" bill are skipped
+  // here so they aren't double-counted (matches debtCreateBill's name key).
+  const bpItems = (typeof getDebts === "function") ? getDebts() : [];
+  const bpDebtsAll = bpItems.filter(d => (d.kind || "debt") === "debt");
+  const bpDebts = bpDebtsAll.filter(d =>
+    !recurring.some(r => (r.description || "").toLowerCase() === (d.name || "").toLowerCase()));
+  const bpIncomeSum   = bpItems.filter(d => d.kind === "income").reduce((s, d) => s + (+d.amount || 0), 0);
+  const bpTransferSum = bpItems.filter(d => d.kind === "transfer").reduce((s, d) => s + (+d.amount || 0), 0);
+  // Amortise the (non-duplicated) debts once; series[k] = the k-th month's totals.
+  const sim = (typeof simulateDebtPayoff === "function" && bpDebts.length)
+    ? simulateDebtPayoff(bpDebts, "avalanche", 0) : null;
+  const simAt = k => (sim && sim.series && sim.series[k]) ? sim.series[k] : null; // k=1 → first payment month
+
   const months = [];
   const startY = (typeof _viewMonth !== "undefined") ? _viewMonth.y : now.getFullYear();
   const startM = (typeof _viewMonth !== "undefined") ? _viewMonth.m : now.getMonth();
@@ -433,6 +458,14 @@ function buildForecastMonths(now, count) {
       if (r.type === "in") income += amt;
       else if (r.type === "out") expenses += amt;
     });
+    // Balance-projection debts (amortising), income, and transfers
+    const s = simAt(i + 1);
+    const debtPaid     = s ? (s.paid || 0)     : 0;
+    const debtInterest = s ? (s.interest || 0) : 0;
+    const debtPrincipal = Math.max(0, debtPaid - debtInterest);
+    expenses += debtPaid;
+    income   += bpIncomeSum;
+    const transferOut = bpTransferSum;
     if (_fcScenario) {
       const scenarioAmt = _fcScenario.amount || 0;
       const maxMonths = _fcScenario.months || count;
@@ -441,7 +474,11 @@ function buildForecastMonths(now, count) {
         else expenses += scenarioAmt;
       }
     }
-    months.push({ ym, label: `${MONTHS[m]} '${String(y).slice(2)}`, income, expenses, net: income - expenses });
+    months.push({
+      ym, label: `${MONTHS[m]} '${String(y).slice(2)}`,
+      income, expenses, net: income - expenses,
+      transferOut, debtInterest, debtPrincipal,
+    });
   }
   return months;
 }
@@ -558,13 +595,13 @@ function latestForecastBalanceStart() {
 
 function projectedBalanceForMonths(months) {
   const start = latestForecastBalanceStart().balance;
-  return start + months.reduce((s, m) => s + m.net, 0);
+  return start + months.reduce((s, m) => s + m.net - (m.transferOut || 0), 0);
 }
 
 function forecastSeries(months) {
   let running = latestForecastBalanceStart().balance;
   return months.map(m => {
-    running += m.net;
+    running += m.net - (m.transferOut || 0);
     return { ym: m.ym, balance: running };
   });
 }
@@ -660,6 +697,12 @@ function renderForecastScenarios() {
   document.getElementById("fc-scenario-custom")?.addEventListener("click", () => showToast("Custom scenarios can be added safely in a later pass."));
 }
 
+// Open the forecast-item modal pre-set to a type (used by the in-page toolbar buttons).
+function openFcModalTyped(type) {
+  openFcModal(null);
+  _fcModalType = (type === "out") ? "out" : "in";
+  document.querySelectorAll("#fc-m-type-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.type === _fcModalType));
+}
 function openFcModal(id = null) {
   _fcEditId = id;
   const f = id ? getForecasts().find(x => String(x.id) === String(id)) : null;
@@ -741,24 +784,10 @@ function deleteFcItem(id) {
   });
 }
 
-document.getElementById("fc-add-btn").addEventListener("click", e => {
-  const menu = document.getElementById("fc-add-menu");
-  if (!menu) { openFcModal(null); return; }
-  e.stopPropagation();
-  menu.hidden = !menu.hidden;
-});
-document.getElementById("fc-add-menu")?.addEventListener("click", e => {
-  const btn = e.target.closest("[data-fc-add]"); if (!btn) return;
-  document.getElementById("fc-add-menu").hidden = true;
-  if (btn.dataset.fcAdd === "plan") { openPlanModal(null); return; }
-  openFcModal(null);
-  _fcModalType = btn.dataset.fcAdd === "income" ? "in" : "out";
-  document.querySelectorAll("#fc-m-type-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.type === _fcModalType));
-});
-document.addEventListener("click", e => {
-  const menu = document.getElementById("fc-add-menu");
-  if (menu && !menu.hidden && !e.target.closest(".fc-add-wrap")) menu.hidden = true;
-});
+// In-page Forecast toolbar (mirrors the Balances toolbar) — replaces the old topbar add menu.
+document.getElementById("fc-tb-add-income")?.addEventListener("click", () => openFcModalTyped("in"));
+document.getElementById("fc-tb-add-expense")?.addEventListener("click", () => openFcModalTyped("out"));
+document.getElementById("fc-tb-manage")?.addEventListener("click", () => openFcModal(null));
 document.getElementById("fc-m-start").addEventListener("input", updateFcEndPreview);
 document.getElementById("fc-m-months").addEventListener("input", updateFcEndPreview);
 document.getElementById("fc-alloc-add")?.addEventListener("click", addAllocSlice);
@@ -784,10 +813,19 @@ document.getElementById("fc-include-sched").addEventListener("change", () => {
   renderForecastChart(months);
 });
 
-document.getElementById("plan-add-btn").addEventListener("click", () => openPlanModal(null));
-document.getElementById("plan-m-cancel").addEventListener("click", closePlanModal);
+// Payment plans are now sourced from Balance projection debts — the card routes there to manage them.
+document.getElementById("plan-add-btn")?.addEventListener("click", () => { if (typeof switchPage === "function") switchPage("debt"); });
+document.getElementById("plan-m-cancel")?.addEventListener("click", closePlanModal);
 document.getElementById("plan-m-save").addEventListener("click", savePlan);
 document.getElementById("plan-modal").addEventListener("click", e => { if (e.target.id === "plan-modal") closePlanModal(); });
+
+document.getElementById("fc-view-seg")?.addEventListener("click", e => {
+  const btn = e.target.closest("[data-view]");
+  if (!btn || btn.dataset.view === _fcView) return;
+  _fcView = btn.dataset.view;
+  const months = buildForecastMonths(new Date(), _fcMonths);
+  renderBalanceForecast(months);
+});
 
 document.getElementById("fc-months-seg").addEventListener("click", e => {
   const btn = e.target.closest("[data-months]");

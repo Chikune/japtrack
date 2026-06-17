@@ -1,4 +1,8 @@
 ﻿:root {
+  /* ── Typography ── one UI font everywhere; mono only for figures ── */
+  --font-sans:   "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono:   "IBM Plex Mono", ui-monospace, monospace;
+
   /* ── Surfaces ── */
   --bg:          #fafaf9;
   --bg-elev:     #ffffff;
@@ -82,8 +86,8 @@ body.tauri .app {
   overflow: hidden;
   height: 100vh;
 }
-.num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-feature-settings: "tnum","zero"; letter-spacing: -0.01em; }
-.display { font-family: "Fraunces", Georgia, serif; font-weight: 500; letter-spacing: -0.02em; }
+.num { font-family: var(--font-mono); font-feature-settings: "tnum","zero"; letter-spacing: -0.01em; }
+.display { font-family: var(--font-sans); font-weight: 600; letter-spacing: -0.01em; }
 button, select, input { font-family: inherit; }
 
 /* ── Scrollbars: theme-aware, slim, smooth ────────────────────────────────

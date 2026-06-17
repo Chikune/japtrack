@@ -76,19 +76,10 @@ function sendHolItemToTx(holId, itemId) {
   }
 }
 
+// Projects now live in the unified Goals + Projects table — defer to renderGoals so
+// every existing project action (save/add item/delete/expand) refreshes that list.
 function renderHolidays() {
-  const grid = document.getElementById("proj-grid"); if (!grid) return;
-  migrateHolidayItems();
-  const holidays = getHolidays();
-  const sub = document.getElementById("proj-sub-count");
-  if (sub) sub.textContent = holidays.length
-    ? `${holidays.length} project${holidays.length===1?'':'s'}`
-    : "";
-  if (!holidays.length) {
-    grid.innerHTML = `<div class="page-stub"><h3>No projects yet</h3><div>Plan anything with multiple costs — a holiday, room furniture, a wedding — by adding expected expenses and watching the subtotals add up.</div></div>`;
-    return;
-  }
-  grid.innerHTML = holidays.map(h => renderHolidayCard(h)).join("");
+  if (typeof renderGoals === "function") renderGoals();
 }
 
 function renderHolidayCard(h) {
@@ -346,7 +337,7 @@ function deleteHolItem(holidayId, itemId) {
 
 /* ── Wire UI ── */
 (function wireHolidays() {
-  document.getElementById("proj-add-btn")?.addEventListener("click", () => openHolModal(null));
+  // (Add is now the unified Goals dropdown — no standalone proj-add button.)
   document.getElementById("hol-m-cancel").addEventListener("click", closeHolModal);
   document.getElementById("hol-m-save").addEventListener("click", saveHoliday);
   document.getElementById("hol-modal").addEventListener("click", e => { if (e.target.id === "hol-modal") closeHolModal(); });

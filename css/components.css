@@ -42,7 +42,7 @@ body:not(.booting) #boot-loader { display: none; }
 #lock-screen[hidden] { display: none; }
 .lock-card { width: 320px; max-width: calc(100vw - 48px); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .lock-mark { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: var(--bg-sunk); color: var(--ink-2); margin-bottom: 4px; }
-.lock-card h2 { font-family: "Fraunces", serif; font-size: 20px; font-weight: 500; }
+.lock-card h2 { font-family: var(--font-sans); font-size: 20px; font-weight: 600; }
 .lock-card .lock-sub { font-size: 12.5px; color: var(--ink-3); margin-bottom: 6px; }
 .lock-card #lock-pin { width: 160px; text-align: center; font-size: 22px; letter-spacing: 0.4em; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-elev); color: var(--ink); font-family: "IBM Plex Mono", monospace; }
 .lock-card #lock-pin:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -69,6 +69,16 @@ body:not(.booting) #boot-loader { display: none; }
 .kpi-sub { font-size: 11px; color: var(--ink-4); margin-top: 1px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pill-delta { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--pos-soft); color: var(--pos); }
 .pill-delta.neg { background: var(--neg-soft); color: var(--neg); }
+
+/* Refresh button — lives in the topbar (just left of the month picker). Shown on the
+   Dashboard, Reports and Forecast (the read-only overview pages); hidden elsewhere. */
+.topbar-refresh { display: none; }
+.main:has(#page-home.active) .topbar-refresh,
+.main:has(#page-insights.active) .topbar-refresh,
+.main:has(#page-forecast.active) .topbar-refresh { display: grid; }
+#home-refresh svg { display: block; }
+#home-refresh.spinning svg { animation: home-refresh-spin 0.6s ease; transform-origin: 50% 50%; }
+@keyframes home-refresh-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 
 /* ── Dashboard redesign: KPI card with icon badge + delta + sparkline.
    Scoped to #page-home so the shared .kpi (budgets/forecast) is untouched. ── */
@@ -134,7 +144,7 @@ body:not(.booting) #boot-loader { display: none; }
 .hero { grid-column: span 8; padding: 0; overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius); }
 .hero-head { padding: 22px 24px 6px; display: flex; gap: 18px; align-items: start; }
 .hero-label { font-size: 12px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
-.hero-amount { font-family: "Fraunces", serif; font-size: 44px; font-weight: 500; letter-spacing: -0.025em; line-height: 1; margin-top: 6px; }
+.hero-amount { font-family: var(--font-mono); font-size: 40px; font-weight: 600; letter-spacing: -0.025em; line-height: 1; margin-top: 6px; }
 .hero-delta { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--pos-soft); color: var(--pos); margin-top: 10px; }
 .hero-delta.neg { background: var(--neg-soft); color: var(--neg); }
 .hero-actions { margin-left: auto; display: flex; gap: 6px; flex-shrink: 0; align-items: start; padding-top: 4px; }
@@ -226,7 +236,7 @@ body:not(.booting) #boot-loader { display: none; }
 .cat-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--bg-sunk); color: var(--ink-2); font-size: 11.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; position: relative; }
 .cat-pill:hover { border-color: var(--line); }
 .cat-pill .swatch { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.cat-pop { position: absolute; z-index: 20; min-width: 200px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 6px; top: calc(100% + 4px); left: 0; }
+.cat-pop { position: absolute; z-index: 20; min-width: 200px; max-height: min(280px, 50vh); overflow-y: auto; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 6px; top: calc(100% + 4px); left: 0; }
 .cat-pop button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 7px 8px; border-radius: 6px; border: none; background: none; font: inherit; color: var(--ink); font-size: 13px; cursor: pointer; }
 .cat-pop button:hover { background: var(--bg-sunk); }
 
@@ -247,12 +257,19 @@ body:not(.booting) #boot-loader { display: none; }
 /* ── Chart tooltip ── */
 .chart-tooltip { position: absolute; background: var(--ink); color: var(--bg); font-size: 11.5px; padding: 6px 9px; border-radius: 6px; pointer-events: none; transform: translate(-50%, -120%); white-space: nowrap; font-family: "IBM Plex Mono", monospace; z-index: 5; }
 
-/* ── Privacy blur ── */
-.privacy .blur { filter: blur(8px); transition: filter 200ms; }
+/* ── Privacy blur ──
+   Blur every figure uniformly so nothing leaks in a screenshot. We target the
+   canonical figure class (.num) and the Balances grid inputs in addition to the
+   explicit .blur opt-in, so no amount is missed. A tighter, even radius reads as a
+   deliberate redaction rather than a smear. */
+.privacy .blur,
+.privacy .num,
+.privacy .acc-g-input { filter: blur(6px); transition: filter 180ms; }
+.privacy .acc-g-input { color: var(--ink); caret-color: transparent; }
 /* Privacy mode also blurs the net-worth chart (lines, fills, Y-axis labels)
    and any hover tooltip on it, so the shape & numbers can't be read at a glance. */
-.privacy #home-nw-svg { filter: blur(10px); transition: filter 200ms; }
-.privacy #home-nw-tip { filter: blur(8px);  transition: filter 200ms; }
+.privacy #home-nw-svg { filter: blur(10px); transition: filter 180ms; }
+.privacy #home-nw-tip { filter: blur(8px);  transition: filter 180ms; }
 
 /* ── Toast ── */
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 13px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: toastIn 200ms ease-out; pointer-events: none; }
@@ -275,7 +292,7 @@ body:not(.booting) #boot-loader { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .modal-backdrop:not([hidden]), .modal { animation: none; }
 }
-.modal h3 { font-family: "Fraunces", serif; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 14px; }
+.modal h3 { font-family: var(--font-sans); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 14px; }
 .modal .row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 10px; margin-bottom: 10px; }
 .modal label { font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; }
 .modal input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; outline: none; width: 100%; font-family: "IBM Plex Mono", monospace; }
@@ -358,7 +375,7 @@ body:not(.booting) #boot-loader { display: none; }
 .btn-ghost.danger:hover { background: color-mix(in oklch, var(--neg) 12%, transparent); border-color: var(--neg); }
 
 /* Rule tag in bank-import row (matches existing dupe-tag style) */
-.bankimp-row .rule-tag { font-size: 10.5px; color: var(--accent-ink); padding: 2px 5px; border: 1px solid var(--accent); border-radius: 4px; text-align: center; }
+.bankimp-row .rule-tag { font-size: 10.5px; font-weight: 600; color: var(--accent-fg); background: var(--accent); padding: 2px 7px; border: 1px solid var(--accent); border-radius: 4px; text-align: center; white-space: nowrap; }
 /* Refund tag — same shape as rule/dup pills, green to signal "cancels a charge". */
 .bankimp-row .refund-tag, .refund-tag { font-size: 10.5px; color: var(--pos); padding: 2px 5px; border: 1px solid var(--pos); border-radius: 4px; text-align: center; }
 /* Per-row "remember as rule" toggle pill. On (green ✓) by default; off (muted ⊘) when opted out. */
@@ -541,7 +558,7 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 .ins-dow-grid .bar > i { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
 .ins-dow-grid .v { font-family: "IBM Plex Mono", monospace; font-size: 12px; text-align: right; color: var(--ink-2); }
 .ins-stab { padding: 8px 0; }
-.ins-stab .verdict { font-family: "Fraunces", serif; font-size: 26px; font-weight: 500; letter-spacing: -0.02em; }
+.ins-stab .verdict { font-family: var(--font-sans); font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
 .ins-stab .verdict.steady { color: var(--pos); }
 .ins-stab .verdict.varied { color: var(--warn); }
 .ins-stab .verdict.erratic { color: var(--neg); }
