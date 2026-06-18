@@ -152,7 +152,7 @@ function renderHolidayCard(h) {
           </div>
         </div>`;
       }).join("")
-    : `<div class="hol-empty">No expenses yet — add your first one below.</div>`;
+    : `<div class="hol-empty">No expenses yet, add your first one below.</div>`;
 
   const countdown = _holDaysUntil(h);
   return `<div class="hol-card">

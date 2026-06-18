@@ -353,6 +353,11 @@ body.tauri .settings-tabs { background: color-mix(in srgb, var(--bg-elev) 88%, t
 .set-section .desc { font-size: 12.5px; color: var(--ink-3); margin-bottom: 16px; }
 .set-row { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid var(--line-2); }
 .set-row:first-of-type { border-top: none; padding-top: 4px; }
+/* In-card subheadings that group the settings rows. */
+.set-group-head { margin: 22px 0 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-4); }
+.set-group-head:first-of-type { margin-top: 6px; }
+/* The row directly under a subheading shouldn't draw its own top divider. */
+.set-group-head + .set-row { border-top: none; padding-top: 6px; }
 .set-row .lab { font-size: 13px; color: var(--ink-2); font-weight: 500; }
 .set-row .lab small { display: block; font-weight: 400; color: var(--ink-3); font-size: 11.5px; margin-top: 3px; }
 .set-row input[type="text"], .set-row select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; max-width: 280px; outline: none; }
@@ -1519,6 +1524,16 @@ button, select, input, label, a { touch-action: manipulation; }
 }
 
 /* 9 · Reduced-motion overrides for new states */
+/* User-set "Reduce motion" (Appearance settings) — kills all animation/transition app-wide,
+   including the net-worth/forecast chart draw. Mirrors the prefers-reduced-motion intent. */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn-primary, .add-btn, .btn-ghost, .btn-danger,
   .icon-btn, .filter-btn, .seg button, .modal .seg-row button,

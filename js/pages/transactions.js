@@ -147,7 +147,7 @@ function renderTxAll() {
     ? (filtered.length < typeTotal
         ? `${filtered.length} of ${typeTotal} ${plural} shown`
         : `${typeTotal} ${plural}`)
-    : `No ${plural} yet — click ${TX_PAGE_ADDLBL[_activePage] || "Add"} to begin`;
+    : `No ${plural} yet, click ${TX_PAGE_ADDLBL[_activePage] || "Add"} to begin`;
   renderTxActiveChips();
   renderTxAllTable(filtered);
   renderTxFilterControls();
@@ -279,7 +279,7 @@ function renderTxAllTable(filtered) {
       // OR detected on the fly — income whose category is an expense category.
       // We prefix the merchant name with ↩ so the row visibly reads as a refund.
       const isRefund = !!t.isRefund || (ty === "in" && t.category && EXP_CAT_SET.has(t.category));
-      const refundGlyph = isRefund ? '<span class="tx-refund-glyph" title="Refund — cancels original expense">↩</span> ' : '';
+      const refundGlyph = isRefund ? '<span class="tx-refund-glyph" title="Refund: cancels original expense">↩</span> ' : '';
       const acctBg = aMeta.color ? `color-mix(in oklch, ${aMeta.color} 20%, transparent)` : "color-mix(in oklch, var(--bg-sunk) 82%, transparent)";
       const sel = _txSelected.has(String(t.id));
       return `<tr class="${sel ? 'tx-row-sel' : ''}">
@@ -451,7 +451,7 @@ function bulkChangeAccountsOpen() {
   if (!_txSelected.size) return;
   const accts = (typeof NW_CATS !== "undefined" ? NW_CATS.map(b => b.id) : []).filter(Boolean);
   const opt = (a) => `<option value="${a.replace(/"/g,'&quot;')}">${a}</option>`;
-  const NONE = `<option value="__keep__" selected>— Don't change —</option>`;
+  const NONE = `<option value="__keep__" selected>Don't change</option>`;
   const isTransfer = _txAllType === "transfer";
   document.getElementById("tx-bulk-acct-row").style.display = isTransfer ? "none" : "";
   document.getElementById("tx-bulk-from-row").style.display = isTransfer ? "" : "none";

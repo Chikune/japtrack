@@ -167,7 +167,7 @@ function renderAccInterest() {
   if (!wrap) return;
   const entries = nwSnapshotsSorted();
   if (entries.length < 2) {
-    wrap.innerHTML = `<div class="acc-tfr-empty">Needs at least two monthly snapshots — once you've saved a second month, interest shows up here automatically.</div>`;
+    wrap.innerHTML = `<div class="acc-tfr-empty">Needs at least two monthly snapshots; once you've saved a second month, interest shows up here automatically.</div>`;
     return;
   }
   const latestTime = monthToTime(entries[entries.length - 1].month);
@@ -212,7 +212,7 @@ function renderAccInterest() {
     pk.textContent = (visible.length === rows.length ? "All accounts" : `${visible.length} of ${rows.length}`) + " ▾";
   }
   if (!visible.length) {
-    wrap.innerHTML = `<div class="acc-tfr-empty">All accounts hidden — use the picker above to show some.</div>`;
+    wrap.innerHTML = `<div class="acc-tfr-empty">All accounts hidden, use the picker above to show some.</div>`;
     return;
   }
   rows = visible;
@@ -259,7 +259,7 @@ function renderAccTransfers() {
     ? `${tfrs.length} transfer${tfrs.length === 1 ? "" : "s"}${_accTfrFilter ? " · " + _accEsc(_accTfrFilter) : ""}`
     : "";
   if (!tfrs.length) {
-    wrap.innerHTML = `<div class="acc-tfr-empty">${_accTfrFilter ? `No transfers involving ${_accEsc(_accTfrFilter)}.` : "No transfers yet — transfers you add in Transactions appear here."}</div>`;
+    wrap.innerHTML = `<div class="acc-tfr-empty">${_accTfrFilter ? `No transfers involving ${_accEsc(_accTfrFilter)}.` : "No transfers yet. Transfers you add in Transactions appear here."}</div>`;
     return;
   }
   const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—";
@@ -1046,7 +1046,7 @@ function openAccMgrEdit(idx) {
   closeAccSnapMgr();
   openNWModal(idx);
   const title = document.getElementById("nw-modal-title");
-  if (title && entry) title.textContent = `Edit Snapshot — ${entry.month}`;
+  if (title && entry) title.textContent = `Edit Snapshot: ${entry.month}`;
 }
 
 function dupAccSnap(idx) {

@@ -134,7 +134,7 @@ function renderNWSnapshots(entries) {
   document.getElementById("nw-count").textContent = entries.length ? `${entries.length} entr${entries.length>1?'ies':'y'}` : "";
   const tbody = document.getElementById("nw-rows");
   if (!entries.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px 0;color:var(--ink-4)">No snapshots — click <b>Add snapshot</b> to begin.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px 0;color:var(--ink-4)">No snapshots, click <b>Add snapshot</b> to begin.</td></tr>`;
     return;
   }
   const display = entries.slice().reverse();

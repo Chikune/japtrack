@@ -9,7 +9,7 @@ let _setCatType = "exp";
    snapshot the "last saved" state on Settings entry so the user can Save (commit)
    or Discard (rollback). Navigation guard prompts if dirty.
 ════════════════════════════════════════ */
-const APPR_FIELDS = ["name","currency","avatarDataUrl","accentColor","posColor","negColor","radius","iconVariant","statsStart"];
+const APPR_FIELDS = ["name","currency","avatarDataUrl","accentColor","posColor","negColor","radius","iconVariant","reduceMotion","compactNumbers","sidebarAuto","privacyDefault"];
 let _apprSnapshot = null;
 
 function captureApprSnapshot() {
@@ -85,10 +85,13 @@ function discardAppr() {
   applyNegColor(snap.negColor || null);
   applyRadius(snap.radius);
   applyIconVariant(snap.iconVariant);
+  document.documentElement.dataset.motion = snap.reduceMotion ? "reduced" : "";
+  document.body.classList.toggle("sidebar-auto", snap.sidebarAuto !== false);
   applySidebarProfile();
   if (typeof renderGreeting === "function") renderGreeting();
   if (typeof renderHomeSummary === "function") renderHomeSummary();
   if (typeof renderSettings === "function") renderSettings();
+  if (typeof renderAll === "function") renderAll(); // reflow amounts (compact-numbers etc.)
   // Clear snapshot so the next interaction captures the now-fresh baseline.
   _apprSnapshot = null;
   updateApprSaveBar();
@@ -217,14 +220,15 @@ function renderSettings() {
   document.querySelectorAll("#set-icon-variant button").forEach(b => {
     b.setAttribute("aria-pressed", b.dataset.variant === ivCur);
   });
-  // Stats-start date for dashboard summary cards
-  const ssInp = document.getElementById("set-stats-start");
-  if (ssInp) {
-    const def = defaultStatsStart();
-    ssInp.value = s.statsStart || def;
-    const hint = document.getElementById("set-stats-start-hint");
-    if (hint) hint.textContent = s.statsStart ? "" : `(default: ${ymLabel(def)})`;
-  }
+  // New appearance toggles (segmented On/Off pickers)
+  const rm = s.reduceMotion ? 1 : 0;
+  document.querySelectorAll("#set-motion-seg button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.rm === rm));
+  const cn = s.compactNumbers ? 1 : 0;
+  document.querySelectorAll("#set-compact-seg button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.compact === cn));
+  const sb = (s.sidebarAuto === false) ? 0 : 1; // default on
+  document.querySelectorAll("#set-sidebar-seg button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.sb === sb));
+  const pd = s.privacyDefault ? 1 : 0;
+  document.querySelectorAll("#set-privacy-seg button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.pd === pd));
   // Refresh export-range bounds from live data
   const dates = getTxns().filter(t => t.date).map(t => t.date).sort();
   if (dates.length) {
@@ -322,7 +326,7 @@ function renderNWMgr() {
   rebuildNWCats();
   if (!NW_CATS.length) {
     list.innerHTML = `<div style="padding:14px;color:var(--ink-4);font-size:12.5px;background:var(--bg-sunk);border-radius:8px">
-      No buckets — add one below or <a style="color:var(--accent-ink);cursor:pointer;text-decoration:underline" onclick="resetNWBuckets()">restore defaults</a>.
+      No buckets, add one below or <a style="color:var(--accent-ink);cursor:pointer;text-decoration:underline" onclick="resetNWBuckets()">restore defaults</a>.
     </div>`;
     return;
   }
@@ -449,7 +453,7 @@ function renderAcctMgr() {
   const list = document.getElementById("set-acct-list");
   if (!list) return;  // Accounts tab removed — Balances page is the account manager now.
   if (!accts.length) {
-    list.innerHTML = cardEmpty(`No accounts yet — add one below.`);
+    list.innerHTML = cardEmpty(`No accounts yet, add one below.`);
     return;
   }
   const emojis = s.acctEmojis || {};
@@ -550,7 +554,7 @@ function saveAcctEdit() {
 function renameAccount(oldName) {
   promptDialog({
     title: "Rename account",
-    message: `Rename "${oldName}" — every transaction, scheduled item, and merchant rule using it will update too.`,
+    message: `Rename "${oldName}": every transaction, scheduled item, and merchant rule using it will update too.`,
     defaultValue: oldName,
     placeholder: "New account name",
     confirmLabel: "Rename",
@@ -560,7 +564,7 @@ function renameAccount(oldName) {
     // Strict-uniqueness check against the unified account list (settings + NW + observed)
     const accts = (typeof getAllAccounts === "function") ? getAllAccounts() : (getSettings().accounts || []);
     if (accts.some(a => a.toLowerCase() === newName.toLowerCase() && a !== oldName)) {
-      showToast(`"${newName}" already exists — pick a different name`);
+      showToast(`"${newName}" already exists, pick a different name`);
       return;
     }
     const r = cascadeAccountRename(oldName, newName);
@@ -722,7 +726,7 @@ function renderAuditModal() {
   const issues = auditDataIntegrity();
   document.getElementById("audit-summary").textContent = issues.total
     ? `${issues.total} issue${issues.total===1?'':'s'} found. Pick a target name for each and we'll cascade the rename through every transaction, budget, scheduled item, and merchant rule.`
-    : `No issues found — your categories and accounts are clean.`;
+    : `No issues found. Your categories and accounts are clean.`;
   const body = document.getElementById("audit-body");
   if (!issues.total) { body.innerHTML = `<div class="audit-empty">🎉 Everything looks consistent.</div>`; return; }
 
@@ -802,7 +806,7 @@ function renderAuditModal() {
   }
 
   if (issues.orphanCats.length) {
-    out += section("Orphan categories — used by transactions but not in your category list", issues.orphanCats.map(o => {
+    out += section("Orphan categories: used by transactions but not in your category list", issues.orphanCats.map(o => {
       return issueWrap({
         kind: "orphan-cat", key: o.name,
         dataAttr: `data-orphan-cat="${o.name.replace(/"/g,'&quot;')}"`,
@@ -816,7 +820,7 @@ function renderAuditModal() {
 
   if (issues.orphanAccts.length) {
     const targetOpts = ["__add__", ...accts];
-    out += section("Orphan accounts — used by transactions but not in your accounts list", issues.orphanAccts.map(o => {
+    out += section("Orphan accounts: used by transactions but not in your accounts list", issues.orphanAccts.map(o => {
       const opts = targetOpts.map(t => `<option value="${t.replace(/"/g,'&quot;')}">${t === "__add__" ? "+ Add as new account" : t}</option>`).join("");
       return issueWrap({
         kind: "orphan-acct", key: o.name,
@@ -830,7 +834,7 @@ function renderAuditModal() {
   }
 
   if (issues.warnings && issues.warnings.length) {
-    out += section("Warnings — review these manually", `<ul class="audit-warnlist">${
+    out += section("Warnings: review these manually", `<ul class="audit-warnlist">${
       issues.warnings.map(w => `<li>${w}</li>`).join("")
     }</ul><div class="audit-warnnote">These aren't auto-fixable. Open the relevant page (Budgets, Goals, Scheduled, Net worth, Transactions) to correct them.</div>`);
   }
@@ -906,7 +910,7 @@ function renderAuditDetail(kind, key) {
     </div>`;
   }).join("");
   const overflowNote = matching.length > showLimit
-    ? `<div class="audit-detail-row"><div class="ad-empty">+ ${matching.length - showLimit} more — use the bulk action above to fix them all at once.</div></div>`
+    ? `<div class="audit-detail-row"><div class="ad-empty">+ ${matching.length - showLimit} more, use the bulk action above to fix them all at once.</div></div>`
     : "";
   return rows + overflowNote;
 }
@@ -1123,7 +1127,7 @@ function maybePromptAudit() {
 function renameAnyCategory(oldName) {
   promptDialog({
     title: "Rename category",
-    message: `Rename "${oldName}" — every transaction, budget, scheduled item, forecast, and merchant rule using it will update too.`,
+    message: `Rename "${oldName}": every transaction, budget, scheduled item, forecast, and merchant rule using it will update too.`,
     defaultValue: oldName,
     placeholder: "New category name",
     confirmLabel: "Rename",
@@ -1170,7 +1174,7 @@ function deleteAnyCategory(id) {
               + lsGet("fin_recurring", []).filter(r => r.category === id).length
               + getBudgets().filter(b => b.id === id || b.category === id).length;
   const usageMsg = usage
-    ? `${usage} item${usage===1?'':'s'} reference this category — they'll keep the "${id}" label and show up as an orphan you can re-assign from the data integrity audit.`
+    ? `${usage} item${usage===1?'':'s'} reference this category, they'll keep the "${id}" label and show up as an orphan you can re-assign from the data integrity audit.`
     : `No transactions use this category.`;
   confirmDialog({
     title: `Delete "${id}"?`,
@@ -1766,7 +1770,7 @@ function renderBankImpList() {
     const amtCls = r.type === "in" ? "in" : "out";
     const ruleTag = r.fromUserRule ? '<span class="rule-tag" title="Already a saved merchant rule">✓ Saved rule</span>' : '';
     const dupTag = r.isDupe ? '<span class="dupe-tag">dup</span>' : '';
-    const refundTagFlat = r.isRefund ? '<span class="refund-tag" title="Paired with an original charge — cancels in spending breakdown">↩ refund</span>' : '';
+    const refundTagFlat = r.isRefund ? '<span class="refund-tag" title="Paired with an original charge, cancels in spending breakdown">↩ refund</span>' : '';
     const confidence = bankImpConfidence(r);
     const pairHtml = r.isRefund && r.refundPair ? _renderRefundPairRow(r, i) : "";
     return `<div class="bankimp-row${dupCls}${skipCls}${ruleCls}" data-idx="${i}">
@@ -1833,8 +1837,8 @@ function renderBankImpGroupedList() {
       // Paired refunds are locked: both legs go to the hidden Refunds category and
       // cancel out. The user can rename them, but category & type are fixed so they
       // can't be re-classified into real spending/income. Show read-only labels.
-      midCol  = `<span class="bankimp-locked" title="Both sides of a paired refund are filed under the hidden Refunds category and excluded from totals — not editable">↩ Refunds</span>`;
-      typeCol = `<span class="bankimp-locked" title="Locked — paired refund">in</span>`;
+      midCol  = `<span class="bankimp-locked" title="Both sides of a paired refund are filed under the hidden Refunds category and excluded from totals (not editable)">↩ Refunds</span>`;
+      typeCol = `<span class="bankimp-locked" title="Locked: paired refund">in</span>`;
     } else {
       if (g.type === "transfer") {
         const cur = g.toAccount || "";
@@ -1865,7 +1869,7 @@ function renderBankImpGroupedList() {
     const learnOn = document.getElementById("bankimp-learn")?.checked;
     const grpNoRule = g.indices.some(i => _bankImpRows[i] && _bankImpRows[i].noRule);
     const ruleToggle = (learnOn && !g.isRefundOnly)
-      ? `<button class="bankimp-rule-toggle${grpNoRule ? ' off' : ''}" onclick="toggleBankImpGroupRule(${gi})" title="${grpNoRule ? "Won't be remembered as a rule — click to remember" : "Will be remembered as a rule — click to skip"}">${grpNoRule ? '⊘ rule' : '✓ rule'}</button>`
+      ? `<button class="bankimp-rule-toggle${grpNoRule ? ' off' : ''}" onclick="toggleBankImpGroupRule(${gi})" title="${grpNoRule ? "Won't be remembered as a rule; click to remember" : "Will be remembered as a rule; click to skip"}">${grpNoRule ? '⊘ rule' : '✓ rule'}</button>`
       : '';
     const dupTag = g.dupeCount ? `<span class="dupe-tag" title="${g.dupeCount} of ${g.count} look like duplicates">dup ${g.dupeCount}</span>` : '';
     const refundCount = g.indices.filter(i => _bankImpRows[i] && _bankImpRows[i].isRefund).length;
@@ -1877,14 +1881,14 @@ function renderBankImpGroupedList() {
       insertedDetailSep = true;
       sep += `<div class="bankimp-detail-sep">
         <div class="bankimp-detail-sep-h">Detailed review · ${complexCount} merchant${complexCount===1?'':'s'} with mixed purposes</div>
-        <div class="bankimp-detail-sep-sub">PayPal, Amazon and other payment processors — each row likely funds something different. Click a row to expand it, then edit the individual transactions and add notes.</div>
+        <div class="bankimp-detail-sep-sub">PayPal, Amazon and other payment processors; each row likely funds something different. Click a row to expand it, then edit the individual transactions and add notes.</div>
       </div>`;
     }
     if (g.isRefundOnly && !insertedRefundSep) {
       insertedRefundSep = true;
       sep += `<div class="bankimp-detail-sep bankimp-refund-sep">
         <div class="bankimp-detail-sep-h">Refunds · ${refundCount} already paired</div>
-        <div class="bankimp-detail-sep-sub">Both sides of each pair are filed under a hidden “Refunds” category so they cancel out — they won't count as spending or income. Nothing to do here.</div>
+        <div class="bankimp-detail-sep-sub">Both sides of each pair are filed under a hidden “Refunds” category so they cancel out; they won't count as spending or income. Nothing to do here.</div>
       </div>`;
     }
     // Collapse state: complex groups start collapsed; refund-only & easy stay flat.
@@ -1955,7 +1959,7 @@ function updateBankImpGroupCat(gi, v) {
     const wantType = g.type === "in" ? "in" : "exp";
     promptDialog({
       title: "New category",
-      message: `Name a new ${wantType === "in" ? "income" : "expense"} category — applies to all ${g.count} matching transactions.`,
+      message: `Name a new ${wantType === "in" ? "income" : "expense"} category, applied to all ${g.count} matching transactions.`,
       placeholder: "e.g. Pet care, Side hustle",
       confirmLabel: "Create",
     }, (name) => {
@@ -1997,7 +2001,7 @@ function updateBankImpGroupToAcct(gi, v) {
   if (v === "__new__") {
     promptDialog({
       title: "New account",
-      message: `Name the destination account — applies to all ${g.count} matching transactions.`,
+      message: `Name the destination account, applied to all ${g.count} matching transactions.`,
       placeholder: "e.g. Trading 212, S&S ISA",
       confirmLabel: "Use account",
     }, (name) => {
@@ -2241,7 +2245,7 @@ function importBankStatement(file) {
         else parsed = parseGenericBankCSV(text);
       }
     } catch (err) {
-      showToast("Couldn't parse file — " + (err.message||"unknown error"));
+      showToast("Couldn't parse file: " + (err.message||"unknown error"));
       return;
     }
     // Best-effort first-guess from the filename so the user mostly only has to confirm.
@@ -2621,7 +2625,7 @@ function renderMerchantRules() {
   if (deleteAllBtn) deleteAllBtn.style.display = rules.length ? "" : "none";
 
   if (!rules.length) {
-    list.innerHTML = `<div class="rules-empty">No rules yet. Import a bank statement and confirm any row — the merchant pattern is saved automatically.</div>`;
+    list.innerHTML = `<div class="rules-empty">No rules yet. Import a bank statement and confirm any row; the merchant pattern is saved automatically.</div>`;
     _updateRulesBulkBar();
     return;
   }
@@ -2701,7 +2705,7 @@ function deleteAllRules() {
   if (!n) return;
   confirmDialog({
     title: `Delete all ${n} rules?`,
-    message: `This permanently removes every saved merchant rule. Your transactions aren't affected — future imports just won't auto-fill from these patterns.`,
+    message: `This permanently removes every saved merchant rule. Your transactions aren't affected; future imports just won't auto-fill from these patterns.`,
     confirmLabel: "Delete all",
     danger: true,
   }, () => {
@@ -2819,7 +2823,7 @@ function deleteRule(id) {
           renderMerchantRules();
           showToast(`Imported ${arr.length} rule${arr.length===1?'':'s'}`);
         });
-      } catch { showToast("Import failed — invalid JSON"); }
+      } catch { showToast("Import failed: invalid JSON"); }
     };
     reader.readAsText(file);
   });
@@ -2892,7 +2896,7 @@ function importData(file) {
     if (isCSV) {
       confirmDialog({ title:"Import CSV?", message:`Import CSV transactions from "${file.name}"? Rows will be ADDED to your existing data (not replaced).`, confirmLabel:"Import", danger:false }, () => {
         const r = importCSVText(text);
-        if (r.error) { showToast("Import failed — " + r.error); return; }
+        if (r.error) { showToast("Import failed: " + r.error); return; }
         const billMsg = r.newBills ? ` · ${r.newBills} new bill${r.newBills===1?'':'s'}` : '';
         showToast(`Imported ${r.ok} transaction${r.ok!==1?'s':''}${r.fail?`, skipped ${r.fail}`:''}${billMsg}`);
         rebuildCatBy();
@@ -2911,7 +2915,7 @@ function importData(file) {
       }
       confirmDialog({
         title: "Restore backup?",
-        message: `This REPLACES all current data with the contents of "${file.name}". Export a backup first if you're unsure — this can't be undone.`,
+        message: `This REPLACES all current data with the contents of "${file.name}". Export a backup first if you're unsure; this can't be undone.`,
         confirmLabel: "Replace all data",
         danger: true,
       }, () => {
@@ -2923,7 +2927,7 @@ function importData(file) {
           resyncApprAfterImport();
         } catch (err) {
           console.error("Restore failed", err);
-          showToast("Restore failed — file may be corrupt");
+          showToast("Restore failed: file may be corrupt");
         }
       });
     }
@@ -3088,7 +3092,7 @@ function ieImport(file) {
     if (typeof isRestorableBackup === "function" && isRestorableBackup(parsed) && !parsed.sections) {
       confirmDialog({ title: "Restore full backup?", message: `This REPLACES ALL current data with "${file.name}". Can't be undone.`, confirmLabel: "Replace all", danger: true }, () => {
         try { Store.importAll(parsed); rebuildCatBy(); showToast("Backup restored"); renderAll(); resyncApprAfterImport(); }
-        catch { showToast("Restore failed — file may be corrupt"); }
+        catch { showToast("Restore failed: file may be corrupt"); }
       });
       return;
     }
@@ -3123,7 +3127,7 @@ function ieReset() {
   if (!sel.length) { showToast("Tick at least one section to reset"); return; }
   confirmDialog({
     title: `Reset ${sel.length} section${sel.length > 1 ? "s" : ""}?`,
-    message: `This deletes: ${sel.map(s => s.label).join(", ")}. Other data is kept. Can't be undone — export first if you might need it back.`,
+    message: `This deletes: ${sel.map(s => s.label).join(", ")}. Other data is kept. Can't be undone; export first if you might need it back.`,
     confirmLabel: "Delete", danger: true,
   }, () => {
     sel.forEach(s => {

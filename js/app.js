@@ -423,8 +423,8 @@ rebuildNWCats();
 if (typeof syncAccountsFromAllSources === "function") syncAccountsFromAllSources();
 applySidebarProfile();
 
-// Auto-collapse sidebar on hover (always-on for now; can be settings-driven later)
-document.body.classList.add("sidebar-auto");
+// Auto-collapse sidebar on hover — on by default, switched off via Appearance settings.
+if (getSettings().sidebarAuto !== false) document.body.classList.add("sidebar-auto");
 
 // Detect Tauri runtime; wire window controls + tag the body
 (function tauriBoot() {
@@ -461,6 +461,8 @@ if (_initSettings.posColor)    applyPosColor(_initSettings.posColor);
 if (_initSettings.negColor)    applyNegColor(_initSettings.negColor);
 if (_initSettings.radius != null) applyRadius(_initSettings.radius);
 applyIconVariant(_initSettings.iconVariant || "auto");
+if (_initSettings.reduceMotion) document.documentElement.dataset.motion = "reduced";
+if (_initSettings.privacyDefault) { _privacy = true; if (typeof applyPrivacy === "function") applyPrivacy(); }
 updateMonthLabel();
 renderAll();
 // Hydrate from the on-disk JSON file (Tauri). This is the AUTHORITATIVE load —
@@ -558,13 +560,13 @@ const APP_VERSION = "1.0.0";
     } catch {
       try {
         await navigator.clipboard.writeText(p);
-        showToast("Data file path copied — paste into your file manager");
+        showToast("Data file path copied, paste into your file manager");
       } catch { showToast(p); }
     }
   });
   const upBtn = document.getElementById("about-check-updates");
   if (upBtn) upBtn.addEventListener("click", () => {
-    showToast(`You're on Japtrack ${APP_VERSION}. Updates ship as a new installer — re-run it to upgrade; your data file is untouched.`);
+    showToast(`You're on Japtrack ${APP_VERSION}. Updates ship as a new installer, re-run it to upgrade; your data file is untouched.`);
   });
   const diagBtn = document.getElementById("about-run-diag");
   if (diagBtn) diagBtn.addEventListener("click", runDataDiagnostics);
@@ -665,7 +667,7 @@ function runDataDiagnostics() {
     out.innerHTML = results.map(r =>
       `<div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;padding:3px 0">
         <span style="color:${r.ok ? "var(--pos)" : "var(--neg)"};font-weight:600">${r.ok ? "✓" : "✗"}</span>
-        <span style="color:var(--ink-2)">${r.name}${r.detail ? ` — <span style="color:var(--neg)">${r.detail}</span>` : ""}</span>
+        <span style="color:var(--ink-2)">${r.name}${r.detail ? `: <span style="color:var(--neg)">${r.detail}</span>` : ""}</span>
       </div>`).join("") +
       `<div style="margin-top:6px;font-size:12px;color:${fail ? "var(--neg)" : "var(--pos)"};font-weight:600">${pass}/${results.length} checks passed</div>`;
   }
@@ -781,7 +783,7 @@ function openPinModal() {
   const askNew = () => {
     promptDialog({
       title: s.pinHash ? "Change PIN" : "Set a PIN",
-      message: "Choose a 4–6 digit PIN. Only a salted hash is stored — there is no recovery if you forget it (keep a backup).",
+      message: "Choose a 4–6 digit PIN. Only a salted hash is stored, so there is no recovery if you forget it (keep a backup).",
       placeholder: "4–6 digits", confirmLabel: "Next",
     }, (np) => {
       if (!/^\d{4,6}$/.test(np)) { showToast("PIN must be 4–6 digits"); return; }
@@ -790,7 +792,7 @@ function openPinModal() {
         message: "Re-enter the same PIN to confirm.",
         placeholder: "Repeat PIN", confirmLabel: "Save PIN",
       }, (cf) => {
-        if (cf !== np) { showToast("PINs didn't match — try again"); return; }
+        if (cf !== np) { showToast("PINs didn't match, try again"); return; }
         save(np);
       });
     });

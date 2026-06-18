@@ -220,7 +220,7 @@ function renderAllocPlan() {
 
   // Read-only rows showing each budget's contribution
   if (!slices.length) {
-    rowsEl.innerHTML = cardEmpty(`No budgets yet — add some above and they'll appear here as a live allocation pie.`);
+    rowsEl.innerHTML = cardEmpty(`No budgets yet, add some above and they'll appear here as a live allocation pie.`);
   } else {
     rowsEl.innerHTML = slices.map(s => {
       const pctOfRing   = ringTotal      ? (s.value / ringTotal      * 100) : 0;
@@ -852,7 +852,7 @@ document.getElementById("set-av-btn").addEventListener("click", () => document.g
 document.getElementById("set-av-file").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 1024*1024) { showToast("Image too large — max 1MB"); e.target.value=""; return; }
+  if (file.size > 1024*1024) { showToast("Image too large (max 1MB)"); e.target.value=""; return; }
   const reader = new FileReader();
   reader.onload = ev => {
     const s = getSettings();
@@ -988,24 +988,36 @@ document.getElementById("set-icon-variant").addEventListener("click", e => {
   document.querySelectorAll("#set-icon-variant button").forEach(btn => btn.setAttribute("aria-pressed", btn.dataset.variant === v));
 });
 
-// Stats start month (controls dashboard summary KPIs date range)
-document.getElementById("set-stats-start").addEventListener("change", e => {
-  const v = e.target.value;
-  const s = getSettings();
-  if (v) s.statsStart = v; else delete s.statsStart;
-  lsSet("fin_settings", s);
-  const hint = document.getElementById("set-stats-start-hint");
-  if (hint) hint.textContent = "";
-  // Re-render dashboard summary if present
-  if (typeof renderHomeSummary === "function") renderHomeSummary();
+// Reduce motion — disable all animations/transitions app-wide
+document.getElementById("set-motion-seg").addEventListener("click", e => {
+  const b = e.target.closest("[data-rm]"); if (!b) return;
+  const on = b.dataset.rm === "1";
+  const s = getSettings(); if (on) s.reduceMotion = true; else delete s.reduceMotion; lsSet("fin_settings", s);
+  document.documentElement.dataset.motion = on ? "reduced" : "";
+  document.querySelectorAll("#set-motion-seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
 });
-document.getElementById("set-stats-start-reset").addEventListener("click", () => {
-  const s = getSettings(); delete s.statsStart; lsSet("fin_settings", s);
-  const def = defaultStatsStart();
-  document.getElementById("set-stats-start").value = def;
-  const hint = document.getElementById("set-stats-start-hint");
-  if (hint) hint.textContent = `(default: ${ymLabel(def)})`;
-  if (typeof renderHomeSummary === "function") renderHomeSummary();
+// Compact numbers — abbreviate large amounts (£1.2k) everywhere
+document.getElementById("set-compact-seg").addEventListener("click", e => {
+  const b = e.target.closest("[data-compact]"); if (!b) return;
+  const on = b.dataset.compact === "1";
+  const s = getSettings(); if (on) s.compactNumbers = true; else delete s.compactNumbers; lsSet("fin_settings", s);
+  document.querySelectorAll("#set-compact-seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  if (typeof renderAll === "function") renderAll();
+});
+// Sidebar — auto-collapse (hover to expand) vs always open
+document.getElementById("set-sidebar-seg").addEventListener("click", e => {
+  const b = e.target.closest("[data-sb]"); if (!b) return;
+  const auto = b.dataset.sb === "1";
+  const s = getSettings(); if (auto) delete s.sidebarAuto; else s.sidebarAuto = false; lsSet("fin_settings", s);
+  document.body.classList.toggle("sidebar-auto", auto);
+  document.querySelectorAll("#set-sidebar-seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+});
+// Start in privacy mode — launch preference only (live blur stays controlled by the eye icon).
+document.getElementById("set-privacy-seg").addEventListener("click", e => {
+  const b = e.target.closest("[data-pd]"); if (!b) return;
+  const on = b.dataset.pd === "1";
+  const s = getSettings(); if (on) s.privacyDefault = true; else delete s.privacyDefault; lsSet("fin_settings", s);
+  document.querySelectorAll("#set-privacy-seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
 });
 
 document.getElementById("set-cat-type").addEventListener("click", e => {

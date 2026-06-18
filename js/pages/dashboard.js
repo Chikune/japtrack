@@ -211,7 +211,7 @@ function renderHomeGoals() {
   const el = document.getElementById("home-goals-list"); if (!el) return;
   const goals = getGoals();
   if (!goals.length) {
-    el.innerHTML = cardEmpty(`No goals — <a onclick="switchPage('goals')">add one</a>`);
+    el.innerHTML = cardEmpty(`No goals, <a onclick="switchPage('goals')">add one</a>`);
     return;
   }
   const rows = goals.map(g => {
@@ -242,7 +242,7 @@ function renderHomeUpcoming() {
   const setTotal = (html) => { if (totalEl) totalEl.innerHTML = html; };
   const recs = getRecurring().filter(r => (r.period || "monthly") === "monthly");
   if (!recs.length) {
-    el.innerHTML = cardEmpty(`No recurring items — <a onclick="switchPage('scheduled')">add some</a>`);
+    el.innerHTML = cardEmpty(`No recurring items, <a onclick="switchPage('scheduled')">add some</a>`);
     setTotal("");
     return;
   }
@@ -341,7 +341,7 @@ function renderHomeNWBuckets() {
   const entries = nwSnapshotsSorted();
   if (!entries.length) {
     if (subEl) subEl.textContent = "";
-    el.innerHTML = cardEmpty(`No snapshots — <a onclick="switchPage('networth')">add one</a>`);
+    el.innerHTML = cardEmpty(`No snapshots, <a onclick="switchPage('networth')">add one</a>`);
     return;
   }
   const last = entries[entries.length - 1];
@@ -438,7 +438,7 @@ function renderHomeNeedsAttention() {
 
   const count = rows.length + (auditRow ? 1 : 0);
   if (subEl) subEl.textContent = count ? String(count) : "";
-  if (!count) { el.innerHTML = cardEmpty("All clear — nothing needs attention"); return; }
+  if (!count) { el.innerHTML = cardEmpty("All clear, nothing needs attention"); return; }
 
   const CAP = 6;
   const shown = rows.slice(0, CAP);
@@ -493,7 +493,7 @@ function renderHomeAccountsDonut() {
   const el = document.getElementById("home-accounts"); if (!el) return;
   const entries = nwSnapshotsSorted();
   if (!entries.length) {
-    el.innerHTML = cardEmpty(`No snapshots — <a onclick="switchPage('networth')">add one</a>`);
+    el.innerHTML = cardEmpty(`No snapshots, <a onclick="switchPage('networth')">add one</a>`);
     return;
   }
   const last = entries[entries.length - 1];
@@ -658,7 +658,7 @@ function renderRepInsights() {
   const cMap = netSpendByCategory(ms.txns), pMap = netSpendByCategory(pms.txns);
   const riser = Object.keys({ ...cMap, ...pMap }).map(cat => ({ cat, delta: (cMap[cat]||0) - (pMap[cat]||0) }))
     .filter(r => r.delta > 1).sort((a,b) => b.delta - a.delta)[0];
-  if (riser) row(_HI.pct, `<b>${riser.cat}</b> rose the most — <span class="blur">+${fmtGBP(riser.delta,{dp:0})}</span> vs ${prevLab}.`);
+  if (riser) row(_HI.pct, `<b>${riser.cat}</b> rose the most, <span class="blur">+${fmtGBP(riser.delta,{dp:0})}</span> vs ${prevLab}.`);
 
   // 3. Biggest single expense
   const big = ms.txns.filter(t => normType(t)==="out").sort((a,b) => b.amount - a.amount)[0];
@@ -781,7 +781,7 @@ function renderHomeCalDetail() {
   const dayTxns = getTxns().filter(t => (t.date||"").slice(0,10) === iso);
   const dt = new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
   if (!dayTxns.length) {
-    detailEl.innerHTML = `<div class="cal-detail-empty">${dt} — no transactions</div>`;
+    detailEl.innerHTML = `<div class="cal-detail-empty">${dt}: no transactions</div>`;
     return;
   }
   // Just a summary: highest spend + total spend, highest income + total income, day count.
@@ -1165,7 +1165,7 @@ function renderRepTrends() {
     });
   });
   const topCats = Object.entries(catTotals).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).slice(0, 6).map(([c]) => c);
-  if (!topCats.length) { el.innerHTML = cardEmpty("Not enough spending history yet — add transactions across a few months to see trends."); return; }
+  if (!topCats.length) { el.innerHTML = cardEmpty("Not enough spending history yet, add transactions across a few months to see trends."); return; }
   // Series matrix: [cat][month] = monthly spend (clamped to 0)
   const series = topCats.map(cat => months.map((_, mi) => Math.max(0, monthCat[mi][cat] || 0)));
   const flat = series.flat();
@@ -1562,7 +1562,7 @@ function renderHomeRecent() {
   const titleEl = document.getElementById("home-recent-title");
   if (titleEl) titleEl.textContent = `Recent`;
   if (!list.length) {
-    el.innerHTML = cardEmpty(`No transactions for ${ml} — <a onclick="openTxModal(null,'out')">add one</a>`);
+    el.innerHTML = cardEmpty(`No transactions for ${ml}, <a onclick="openTxModal(null,'out')">add one</a>`);
     return;
   }
   el.innerHTML = list.map(t => {
@@ -1589,7 +1589,7 @@ function renderHomeBudget() {
   const titleEl = document.getElementById("home-bud-title");
   if (titleEl) titleEl.textContent = `Budgets`;
   if (!buds.length) {
-    el.innerHTML = cardEmpty(`No budgets — <a onclick="switchPage('budgets')">add some</a>`);
+    el.innerHTML = cardEmpty(`No budgets, <a onclick="switchPage('budgets')">add some</a>`);
     return;
   }
   const txns = getTxns();

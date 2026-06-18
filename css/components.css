@@ -525,7 +525,9 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 .bankimp-row-child .confidence { font-family: "IBM Plex Mono", monospace; color: var(--accent-ink); font-size: 11.5px; }
 
 /* ── Settings save bar (Appearance) ── */
-.set-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; margin: 20px -18px -18px; padding: 12px 18px; border-top: 1px solid var(--line-2); background: var(--bg-elev); border-radius: 0 0 12px 12px; font-size: 13px; color: var(--ink-3); z-index: 5; }
+/* Negative margins must cancel the card's actual padding (14px in the locked compact
+   density) so the bar sits flush with the card edges and its content aligns with the rows. */
+.set-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; margin: 18px -14px -14px; padding: 12px 14px; border-top: 1px solid var(--line-2); background: var(--bg-elev); border-radius: 0 0 var(--radius) var(--radius); font-size: 13px; color: var(--ink-3); z-index: 5; }
 .set-savebar.is-dirty { background: color-mix(in oklch, var(--accent) 12%, var(--bg-elev)); color: var(--ink); border-top-color: color-mix(in oklch, var(--accent) 40%, var(--line)); }
 .set-savebar #set-appr-save:disabled,
 .set-savebar #set-appr-discard:disabled { opacity: 0.5; cursor: not-allowed; }

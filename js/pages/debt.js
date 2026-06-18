@@ -218,7 +218,7 @@ function renderDebt() {
         ? `${fmtGBP(sim.totalMonthly, { dp: 0 })}/mo · some debts never clear`
         : `${fmtGBP(sim.totalMonthly, { dp: 0 })}/mo until ${_fmtMonthYear(sim.debtFreeDate)}`;
       chartEl.innerHTML = (sim.stalled
-        ? `<div class="debt-stall-note">⚠️ At these minimum payments, some debts never clear — interest outpaces the payment.</div>`
+        ? `<div class="debt-stall-note">⚠️ At these minimum payments, some debts never clear; interest outpaces the payment.</div>`
         : "") + _debtPayoffChart(sim);
       _wireDebtChartHover(sim);
     } else {

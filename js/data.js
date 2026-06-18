@@ -186,7 +186,7 @@ function _persistLocalStorage() {
     localStorage.setItem(STORE_KEY, JSON.stringify(_store));
   } catch (e) {
     console.error("Store: localStorage write failed", e);
-    _notifyWriteFailure("Storage is full — your latest changes may not be saved. Export a backup now.");
+    _notifyWriteFailure("Storage is full, so your latest changes may not be saved. Export a backup now.");
   }
 }
 
@@ -219,7 +219,7 @@ async function _persistFile() {
     _notifyWriteOK();
   } catch (e) {
     console.warn("Store: file write failed", e);
-    _notifyWriteFailure("Couldn't save to disk — your data may not persist. Use Settings → Export backup.");
+    _notifyWriteFailure("Couldn't save to disk, so your data may not persist. Use Settings → Export backup.");
   }
 }
 
@@ -270,7 +270,7 @@ async function _hydrateFromFile() {
     console.warn("Store: file load failed, sticking with localStorage", e);
     _fileHydrationDone = true;
     _pendingFileWrite = false;
-    _notifyWriteFailure("Couldn't load the data file — existing file was left untouched. Export a backup before making changes.");
+    _notifyWriteFailure("Couldn't load the data file, so the existing file was left untouched. Export a backup before making changes.");
     return false;
   }
 }

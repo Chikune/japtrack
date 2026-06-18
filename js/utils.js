@@ -33,8 +33,12 @@ function activeCurrency() {
 
 // Currency-aware money formatter. Name kept as fmtGBP for the many existing
 // call sites; fmtMoney is a clearer alias for new code.
+// True when the user enabled "Compact numbers" in Appearance settings.
+function prefCompact() { try { return !!getSettings().compactNumbers; } catch { return false; } }
 function fmtGBP(n, opts = {}) {
-  const { sign = false, dp = 2, minDp = dp, compact = false } = opts;
+  const { sign = false, dp = 2, minDp = dp } = opts;
+  // Explicit `compact` (true/false) from the caller wins; otherwise follow the setting.
+  const compact = (opts.compact != null) ? opts.compact : prefCompact();
   const cur = activeCurrency();
   const abs = Math.abs(n);
   let str;
