@@ -149,31 +149,52 @@ document.querySelectorAll(".nav-item[data-page]").forEach(btn => {
 });
 document.getElementById("settings-btn").addEventListener("click", () => switchPage("settings"));
 
-/* Help page: scroll-spy that highlights the table-of-contents link for the
-   section currently in view, and smooth-scrolls when a TOC link is clicked. */
+/* Help page: a TOC that highlights the section in view and scrolls to a section
+   when its link is clicked. Hand-rolled because (a) WebView2 ignores programmatic
+   `behavior:"smooth"` on a nested overflow container, and (b) the old
+   IntersectionObserver set "active" to whichever entry fired last (not the topmost),
+   so several short sections in view at once highlighted the wrong link. */
 (function wireHelpToc() {
   const toc = document.getElementById("help-toc");
   if (!toc) return;
   const links = [...toc.querySelectorAll(".help-toc-link")];
-  const byId = id => links.find(a => a.getAttribute("href") === "#" + id);
-  // Smooth-scroll within the .main scroller (anchors don't natively scroll a nested
-  // overflow container reliably across all webviews).
-  links.forEach(a => a.addEventListener("click", e => {
-    const id = a.getAttribute("href").slice(1);
-    const sec = document.getElementById(id);
-    if (sec) { e.preventDefault(); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
-  }));
   const sections = [...document.querySelectorAll("#page-help .help-sec")];
-  if (!sections.length || !("IntersectionObserver" in window)) return;
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(en => {
-      if (en.isIntersecting) {
-        const link = byId(en.target.id);
-        if (link) { links.forEach(l => l.classList.remove("active")); link.classList.add("active"); }
-      }
-    });
-  }, { root: document.querySelector(".main"), rootMargin: "0px 0px -70% 0px", threshold: 0 });
-  sections.forEach(s => obs.observe(s));
+  const byId = id => links.find(a => a.getAttribute("href") === "#" + id);
+  const main = document.querySelector(".main");
+  const topbarH = () => document.querySelector(".topbar")?.offsetHeight || 0;
+  const setActive = link => { if (!link) return; links.forEach(l => l.classList.remove("active")); link.classList.add("active"); };
+
+  const scrollToSec = sec => {
+    if (!main) return;
+    const mr = main.getBoundingClientRect(), sr = sec.getBoundingClientRect();
+    main.scrollTop = Math.max(0, main.scrollTop + (sr.top - mr.top) - topbarH() - 16);
+  };
+
+  // After a click we scroll programmatically (which fires scroll events); ignore the
+  // spy briefly so the clicked link wins even when the section can't reach the top
+  // (the last sections sit within one screen, so they share the same max-scroll).
+  let lockUntil = 0;
+  links.forEach(a => a.addEventListener("click", e => {
+    const sec = document.getElementById(a.getAttribute("href").slice(1));
+    if (!sec) return;
+    e.preventDefault();
+    setActive(a);
+    scrollToSec(sec);
+    lockUntil = performance.now() + 700;
+  }));
+
+  // Scroll-spy: active = the LAST section whose heading has crossed the line just
+  // below the topbar (deterministic, always the topmost in-view section).
+  const spy = () => {
+    if (!sections.length || performance.now() < lockUntil) return;
+    const line = (main ? main.getBoundingClientRect().top : 0) + topbarH() + 26;
+    let active = sections[0];
+    for (const s of sections) {
+      if (s.getBoundingClientRect().top <= line) active = s; else break;
+    }
+    setActive(byId(active.id));
+  };
+  if (main) main.addEventListener("scroll", spy, { passive: true });
 })();
 
 // Accounts page inner tabs — switch between Accounts and Net worth without leaving the page

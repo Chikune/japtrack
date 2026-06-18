@@ -1684,7 +1684,10 @@ button, select, input, label, a { touch-action: manipulation; }
 
 /* ════════════ HELP / GUIDE PAGE — Notion-style document ════════════ */
 /* Two-column doc: sticky table of contents + a narrow reading column. */
-.help-doc { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 40px; max-width: 920px; margin: 0 auto; padding: 8px 0 60px; }
+/* Trailing space (padding-bottom) lets the LAST sections scroll up to just below the
+   topbar when clicked in the TOC — without it they share the same max-scroll and the
+   bottom links all land on the same spot. */
+.help-doc { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 40px; max-width: 920px; margin: 0 auto; padding: 8px 0 78vh; }
 
 /* Left rail — sticky table of contents */
 .help-toc { position: sticky; top: 8px; align-self: start; display: flex; flex-direction: column; gap: 1px; }
@@ -1718,6 +1721,23 @@ button, select, input, label, a { touch-action: manipulation; }
 .help-callout b { color: var(--ink); }
 .help-callout-warn { background: color-mix(in oklch, var(--neg) 8%, transparent); border: 1px solid color-mix(in oklch, var(--neg) 25%, transparent); }
 .help-callout-info { background: color-mix(in oklch, var(--accent) 8%, transparent); border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent); }
+
+/* Worked-example callout — a concrete "here's how it plays out with real numbers" block. */
+.help-example { margin: 18px 0; padding: 15px 17px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--bg-sunk); }
+.help-example .help-example-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent-ink); margin-bottom: 9px; }
+.help-example p { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); margin: 0 0 7px; }
+.help-example p:last-child { margin-bottom: 0; }
+.help-example b { color: var(--ink); }
+.help-example .help-eg-pos { color: var(--pos); font-weight: 650; }
+.help-example .help-eg-neg { color: var(--neg); font-weight: 650; }
+/* Vector diagram with caption — themed illustration, no raster assets. */
+.help-figure { margin: 20px 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); }
+.help-figure svg { display: block; width: 100%; height: auto; }
+.help-figure figcaption { margin-top: 12px; font-size: 12.5px; line-height: 1.5; color: var(--ink-4); text-align: center; }
+.help-figure .hf-t { font-family: "Inter", sans-serif; }
+/* Inline example budget bar inside a figure. */
+.help-bar { height: 12px; border-radius: 999px; background: var(--bg-sunk); overflow: hidden; }
+.help-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
 
 @media (max-width: 820px) {
   .help-doc { grid-template-columns: 1fr; gap: 0; }

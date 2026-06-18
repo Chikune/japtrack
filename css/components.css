@@ -264,12 +264,31 @@ body:not(.booting) #boot-loader { display: none; }
    deliberate redaction rather than a smear. */
 .privacy .blur,
 .privacy .num,
-.privacy .acc-g-input { filter: blur(6px); transition: filter 180ms; }
+.privacy .acc-g-input,
+.privacy .nw-hero-delta,
+.privacy .fc-scenario small,
+.privacy .acc-g-total,
+.privacy .ins-kpi .delta,
+.privacy #debt-list-sub,
+.privacy #debt-total-sub,
+.privacy #debt-chart-sub { filter: blur(6px); transition: filter 180ms; }
 .privacy .acc-g-input { color: var(--ink); caret-color: transparent; }
-/* Privacy mode also blurs the net-worth chart (lines, fills, Y-axis labels)
-   and any hover tooltip on it, so the shape & numbers can't be read at a glance. */
-.privacy #home-nw-svg { filter: blur(10px); transition: filter 180ms; }
-.privacy #home-nw-tip { filter: blur(8px);  transition: filter 180ms; }
+/* Privacy mode also blurs the trend/projection charts (lines, fills, Y-axis labels)
+   and any hover tooltip on them, so the shape & numbers can't be read at a glance.
+   The edges are feathered with a mask so the blur melts into the card instead of
+   hard-clipping to a sharp rectangle (which read as janky). One uniform 10px radius. */
+.privacy #home-nw-svg,
+.privacy #fc-balance-grid,
+.privacy #debt-chart,
+.privacy #rep-trends {
+  filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 34px, #000 calc(100% - 34px), transparent), linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  -webkit-mask-composite: source-in;
+          mask-image: linear-gradient(to right, transparent, #000 34px, #000 calc(100% - 34px), transparent), linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+          mask-composite: intersect;
+  transition: filter 180ms;
+}
+.privacy #home-nw-tip { filter: blur(10px); transition: filter 180ms; }
 
 /* ── Toast ── */
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 13px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: toastIn 200ms ease-out; pointer-events: none; }

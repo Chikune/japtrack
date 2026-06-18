@@ -777,6 +777,24 @@
               <li><b>Flow</b> (money moving) — your transactions. Income, spending, transfers. Tracked automatically from what you import.</li>
               <li><b>Balances / net worth</b> (money you <i>have</i>) — <b>manual snapshots</b> you enter yourself. Adding transactions does <b>not</b> change your net worth — see <a href="#help-networth">Accounts &amp; Net worth</a> for why.</li>
             </ul>
+            <figure class="help-figure">
+              <svg viewBox="0 0 600 196" role="img" aria-label="Flow versus balances" class="hf-t">
+                <rect x="6" y="10" width="282" height="176" rx="12" fill="var(--bg-sunk)" stroke="var(--line)"/>
+                <text x="26" y="42" fill="var(--ink)" font-size="15" font-weight="700">Flow</text>
+                <text x="26" y="62" fill="var(--ink-3)" font-size="12">money moving · your transactions</text>
+                <rect x="26" y="80" width="84" height="26" rx="13" fill="var(--pos-soft)"/><text x="40" y="97" fill="var(--pos)" font-size="12" font-weight="600">Income</text>
+                <rect x="118" y="80" width="92" height="26" rx="13" fill="var(--neg-soft)"/><text x="132" y="97" fill="var(--neg)" font-size="12" font-weight="600">Spending</text>
+                <rect x="26" y="114" width="96" height="26" rx="13" fill="var(--accent-soft)"/><text x="40" y="131" fill="var(--accent-ink)" font-size="12" font-weight="600">Transfers</text>
+                <text x="26" y="172" fill="var(--ink-4)" font-size="11" font-weight="700" letter-spacing="0.05em">TRACKED AUTOMATICALLY</text>
+                <rect x="312" y="10" width="282" height="176" rx="12" fill="var(--bg-sunk)" stroke="var(--line)"/>
+                <text x="332" y="42" fill="var(--ink)" font-size="15" font-weight="700">Balances</text>
+                <text x="332" y="62" fill="var(--ink-3)" font-size="12">money you have · net worth</text>
+                <polyline points="340,150 396,140 452,144 508,118 560,104" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+                <circle cx="340" cy="150" r="3.5" fill="var(--accent)"/><circle cx="396" cy="140" r="3.5" fill="var(--accent)"/><circle cx="452" cy="144" r="3.5" fill="var(--accent)"/><circle cx="508" cy="118" r="3.5" fill="var(--accent)"/><circle cx="560" cy="104" r="3.5" fill="var(--accent)"/>
+                <text x="332" y="172" fill="var(--ink-4)" font-size="11" font-weight="700" letter-spacing="0.05em">SNAPSHOTS YOU ENTER</text>
+              </svg>
+              <figcaption>Two kinds of numbers: flow is read from your transactions automatically; balances are snapshots you record yourself.</figcaption>
+            </figure>
           </section>
 
           <section id="help-dashboard" class="help-sec">
@@ -788,12 +806,22 @@
             <h2>Transactions</h2>
             <p>Every income, expense and transfer. Add them manually with <b>+ Add transaction</b>, or bulk-import a bank statement under <b>Imports &amp; Rules</b>. You can filter, search, select multiple rows, and bulk edit or delete.</p>
             <p><b>Imports &amp; Rules:</b> upload a CSV/statement and Japtrack groups it by merchant and suggests categories. <b>Merchant rules</b> are remembered so the next time it sees "TESCO" it auto-fills Groceries. You control which rows become rules.</p>
+            <div class="help-example">
+              <div class="help-example-tag">Example · merchant rule</div>
+              <p>You import a row <b>"TESCO STORES 2841"</b> and set its category to <b>Groceries</b>, ticking <b>Remember as rule</b>.</p>
+              <p>From then on, every imported <b>"TESCO…"</b> line is auto-categorised as Groceries before you even look — so a 200-row statement might need only a handful of manual touches.</p>
+            </div>
           </section>
 
           <section id="help-refunds" class="help-sec">
             <h2>Refunds &amp; reimbursements</h2>
             <p>When a refund is paired with its original charge during import, <b>both sides are filed under a hidden "Refunds" category</b> and excluded from spending and income — because nothing really left your account, it cancels out. This keeps your "actually spent" figure honest.</p>
             <p>Money tagged <b>Reimbursement</b> (e.g. a work expense paid back) also reduces your real spending total, rather than showing as extra income.</p>
+            <div class="help-example">
+              <div class="help-example-tag">Example · a return that cancels out</div>
+              <p>You buy headphones for <span class="help-eg-neg">−£40</span>, decide against them, and get <span class="help-eg-pos">+£40</span> back a week later.</p>
+              <p>Japtrack pairs the two and files both under the hidden <b>Refunds</b> category. Your spending for the month is <b>unchanged</b> — it doesn't show <span class="help-eg-neg">£40 spent</span> nor <span class="help-eg-pos">£40 income</span>, because nothing actually left your pocket.</p>
+            </div>
           </section>
 
           <section id="help-networth" class="help-sec">
@@ -808,11 +836,38 @@
               <span class="help-callout-ic">🚧</span>
               <div><b>On the roadmap:</b> letting transactions optionally nudge account balances between snapshots. The tricky part is avoiding double-counting — a snapshot already reflects reality, so later transactions would need careful reconciliation. For now, snapshots are the single source of truth for balances.</div>
             </div>
+            <figure class="help-figure">
+              <svg viewBox="0 0 600 206" role="img" aria-label="Net worth snapshots over time" class="hf-t">
+                <line x1="60" y1="168" x2="582" y2="168" stroke="var(--line)"/>
+                <polyline points="92,148 224,120 356,124 488,72" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="92" cy="148" r="5" fill="var(--accent)"/><circle cx="224" cy="120" r="5" fill="var(--accent)"/><circle cx="356" cy="124" r="5" fill="var(--accent)"/><circle cx="488" cy="72" r="5" fill="var(--accent)"/>
+                <text x="92" y="136" fill="var(--ink-2)" font-size="11" text-anchor="middle">£10.0k</text>
+                <text x="224" y="108" fill="var(--ink-2)" font-size="11" text-anchor="middle">£10.6k</text>
+                <text x="356" y="112" fill="var(--ink-2)" font-size="11" text-anchor="middle">£10.6k</text>
+                <text x="488" y="60" fill="var(--ink-2)" font-size="11" text-anchor="middle">£11.5k</text>
+                <text x="92" y="190" fill="var(--ink-4)" font-size="11" text-anchor="middle">Jan</text>
+                <text x="224" y="190" fill="var(--ink-4)" font-size="11" text-anchor="middle">Feb</text>
+                <text x="356" y="190" fill="var(--ink-4)" font-size="11" text-anchor="middle">Mar</text>
+                <text x="488" y="190" fill="var(--ink-4)" font-size="11" text-anchor="middle">Apr</text>
+                <line x1="356" y1="36" x2="356" y2="168" stroke="var(--ink-4)" stroke-width="1" stroke-dasharray="3 4"/>
+                <text x="348" y="32" fill="var(--ink-3)" font-size="11" text-anchor="end">£200 transfer in Mar →</text>
+                <text x="364" y="32" fill="var(--ink-3)" font-size="11">line unaffected</text>
+              </svg>
+              <figcaption>Net worth connects the snapshots you record. The March transfer between your own accounts doesn't move the line — your total is unchanged.</figcaption>
+            </figure>
           </section>
 
           <section id="help-budgets" class="help-sec">
             <h2>Budgets</h2>
             <p>Set a monthly spending limit per category. The page shows what you've spent vs. budgeted, what's left, and your pace through the month. Budgets are compared against your actual transactions, so keep categories tidy for accurate tracking.</p>
+            <figure class="help-figure">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px">
+                <b class="hf-t" style="color:var(--ink);font-size:14px">🍽️ Dining</b>
+                <span style="color:var(--ink-3);font-size:12.5px">£80 of £150 · <b style="color:var(--ink-2)">£70 left</b></span>
+              </div>
+              <div class="help-bar"><i style="width:53%"></i></div>
+              <figcaption>53% of the Dining budget used. The bar fills as transactions in that category add up through the month.</figcaption>
+            </figure>
           </section>
 
           <section id="help-bills" class="help-sec">
@@ -828,6 +883,11 @@
           <section id="help-debt" class="help-sec">
             <h2>Debt calculator</h2>
             <p>List your debts (balance, APR, minimum payment) and Japtrack plans the fastest route to debt-free using the <b>Avalanche</b> (highest interest first — saves the most) or <b>Snowball</b> (smallest balance first — quick wins) method. The projection chart shows your balance falling to zero; hover any point for that month's payment, interest, and remaining balance.</p>
+            <div class="help-example">
+              <div class="help-example-tag">Example · avalanche vs snowball</div>
+              <p>Say you have a <b>Credit card</b> (£1,200 at 22% APR) and a <b>Car loan</b> (£600 at 4% APR), with spare cash beyond the minimums.</p>
+              <p><b>Avalanche</b> throws the spare cash at the <b>credit card</b> first (highest rate) — you pay the least interest overall. <b>Snowball</b> clears the <b>car loan</b> first (smallest balance) — one debt gone sooner for momentum. Same payments, different order; the chart shows each route to £0.</p>
+            </div>
           </section>
 
           <section id="help-forecast" class="help-sec">

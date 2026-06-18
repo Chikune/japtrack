@@ -634,7 +634,7 @@ function renderForecastInsights(months) {
     </div>
     <div class="fc-insight-row watch">
       <span>◷</span>
-      <div><strong>Watch period</strong><p>Your lowest projected balance is ${fmtSignedGBP(low.balance,{dp:0,plainPositive:true})} in ${formatYM(low.ym)}.</p></div>
+      <div><strong>Watch period</strong><p>Your lowest projected balance is <span class="num blur">${fmtSignedGBP(low.balance,{dp:0,plainPositive:true})}</span> in ${formatYM(low.ym)}.</p></div>
     </div>
     <div class="fc-insight-row info">
       <span>□</span>
